@@ -34,7 +34,7 @@ add_compile_options(-Os -Wall -Wextra -Wpedantic)
 add_executable(uaes_128)
 target_sources(uaes_128 PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/uaes.c
-    ${CMAKE_CURRENT_LIST_DIR}/main.c
+    ${CMAKE_CURRENT_LIST_DIR}/test.c
 )
 
 target_include_directories(uaes_128
@@ -48,7 +48,7 @@ target_compile_definitions(uaes_128 PRIVATE
 add_executable(uaes_192)
 target_sources(uaes_192 PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/uaes.c
-    ${CMAKE_CURRENT_LIST_DIR}/main.c
+    ${CMAKE_CURRENT_LIST_DIR}/test.c
 )
 
 target_include_directories(uaes_192
@@ -62,7 +62,7 @@ target_compile_definitions(uaes_192 PRIVATE
 add_executable(uaes_256)
 target_sources(uaes_256 PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/uaes.c
-    ${CMAKE_CURRENT_LIST_DIR}/main.c
+    ${CMAKE_CURRENT_LIST_DIR}/test.c
 )
 
 target_include_directories(uaes_256

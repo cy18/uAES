@@ -30,13 +30,17 @@
 #include <stdio.h> // cppcheck-suppress misra-c2012-21.6 ; supprssed for testing
 #include <stdlib.h>
 #include <string.h>
-#include <time.h> // cppcheck-suppress misra-c2012-21.10 ; supprssed for testing
 
-#define TEST_SPEED       0
-#define TEST_ENCRYPT_NUM 10000000u
-#define TEST_DECRYPT_NUM 1000000u
+static void PrintArray(const uint8_t *array, uint8_t size)
+{
+    for (uint8_t i = 0u; i < size; i++) {
+        (void)printf("%02x ", array[i]);
+    }
+    (void)printf("\n");
+}
 
-int main(void)
+#if (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
+static uint8_t TestECB(void)
 {
 #if UAES_KEY_SIZE == 256u
     uint8_t const KEY[] = { 0x60, 0x3d, 0xeb, 0x10, 0x15, 0xca, 0x71, 0xbe,
@@ -60,73 +64,42 @@ int main(void)
 
     uint8_t const IN[] = { 0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96,
                            0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a };
+    uint8_t failure = 0u;
     UAES_ECB_Ctx_t ctx;
     UAES_ECB_Init(&ctx, KEY);
     uint8_t result[16];
-    (void)printf("Testing uAES key size %u\n", UAES_KEY_SIZE);
-#if TEST_SPEED
-    {
-        struct timespec start;
-        struct timespec end;
-        clock_gettime(CLOCK_MONOTONIC, &start);
-        for (uint32_t i = 0u; i < TEST_ENCRYPT_NUM; ++i) {
-            UAES_ECB_Encrypt(&ctx, IN, result);
-        }
-        clock_gettime(CLOCK_MONOTONIC, &end);
-        uint64_t start_ns =
-                start.tv_sec * (uint64_t)1000000000u + (uint64_t)start.tv_nsec;
-        uint64_t end_ns =
-                end.tv_sec * (uint64_t)1000000000u + (uint64_t)end.tv_nsec;
-        (void)printf("UAES_ECB_Encrypt took %llu ns\n",
-                     (end_ns - start_ns) / TEST_ENCRYPT_NUM);
-    }
-#else
+#if UAES_ECB_ENCRYPT
     UAES_ECB_Encrypt(&ctx, IN, result);
-#endif
     if (memcmp(OUT, result, 16u) != 0) {
         (void)printf("UAES_ECB_Encrypt failed\n");
-        for (int i = 0; i < 16; i++) {
-            (void)printf("%02x ", OUT[i]);
-        }
-        (void)printf("\n");
-        for (int i = 0; i < 16; i++) {
-            (void)printf("%02x ", result[i]);
-        }
-        (void)printf("\n");
+        PrintArray(OUT, sizeof(OUT));
+        PrintArray(result, sizeof(result));
+        failure++;
     } else {
         (void)printf("UAES_ECB_Encrypt passed\n");
     }
-#if TEST_SPEED
-    {
-        struct timespec start;
-        struct timespec end;
-        clock_gettime(CLOCK_MONOTONIC, &start);
-        for (uint32_t i = 0u; i < TEST_DECRYPT_NUM; ++i) {
-            UAES_ECB_Decrypt(&ctx, OUT, result);
-        }
-        clock_gettime(CLOCK_MONOTONIC, &end);
-        uint64_t start_ns =
-                start.tv_sec * (uint64_t)1000000000u + (uint64_t)start.tv_nsec;
-        uint64_t end_ns =
-                end.tv_sec * (uint64_t)1000000000u + (uint64_t)end.tv_nsec;
-        (void)printf("UAES_ECB_Decrypt took %llu ns\n",
-                     (end_ns - start_ns) / TEST_DECRYPT_NUM);
-    }
-#else
+#endif // UAES_ECB_ENCRYPT
+#if UAES_ECB_DECRYPT
     UAES_ECB_Decrypt(&ctx, OUT, result);
-#endif
-    if (memcmp(IN, result, 16u) != 0) {
+    if (memcmp(IN, result, sizeof(IN)) != 0) {
         (void)printf("UAES_ECB_Decrypt failed\n");
-        for (int i = 0; i < 16; i++) {
-            (void)printf("%02x ", IN[i]);
-        }
-        (void)printf("\n");
-        for (int i = 0; i < 16; i++) {
-            (void)printf("%02x ", result[i]);
-        }
-        (void)printf("\n");
+        PrintArray(IN, sizeof(IN));
+        PrintArray(result, sizeof(result));
+        failure++;
     } else {
         (void)printf("UAES_ECB_Decrypt passed\n");
     }
-    return 0;
+#endif // UAES_ECB_DECRYPT
+    return failure;
+}
+#endif // (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
+
+int main(void)
+{
+    uint8_t failure = 0u;
+    (void)printf("Testing AES-%u\n", UAES_KEY_SIZE);
+#if (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
+    failure += TestECB();
+#endif
+    return (int)failure;
 }
