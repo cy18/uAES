@@ -45,6 +45,14 @@
 #define UAES_ECB_DECRYPT 1
 #endif
 
+#ifndef UAES_CBC_ENCRYPT
+#define UAES_CBC_ENCRYPT 1
+#endif
+
+#ifndef UAES_CBC_DECRYPT
+#define UAES_CBC_DECRYPT 1
+#endif
+
 #ifndef UAES_CTR
 #define UAES_CTR 1
 #endif
@@ -90,6 +98,76 @@ extern void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output);
 #endif // UAES_ECB_DECRYPT
+
+#if (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+typedef struct {
+    uint8_t key[UAES_KEY_SIZE / 8u];
+    uint8_t iv[16u];
+} UAES_CBC_Ctx_t;
+
+/**
+ * @brief Initialize the context for AES CBC mode.
+ *
+ * As a block cipher, the CBC mode requires padding if the data length is not a
+ * multiple of 16 bytes. The padding method is not specified in this library. It
+ * is recommended to use PKCS#7 padding.
+ * (https://en.wikipedia.org/wiki/Padding_(cryptography)#PKCS7)
+ *
+ * CBC mode need an initialization vector (IV) at initialization. The IV is
+ * generally considered public information. However, the IV should NEVER be
+ * reused with the same key. The IV length is always 16 bytes.
+ *
+ * The CBC mode need the AES decryption cipher to do decryption. Thus it
+ * requires more code space than CTR mode. Furthermore, the AES decryption of
+ * this library is slower than the encryption. Thus, the CBC decryption is
+ * slower than CTC. For these reasons, CTR mode is recommended over CBC mode
+ * if possible.
+ *
+ * @param ctx The context to initialize.
+ * @param key The 128-, 192-, or 256-bit key.
+ * @param iv The 16-byte initialization vector.
+ */
+extern void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
+                          const uint8_t *key,
+                          const uint8_t *iv);
+
+#if UAES_CBC_ENCRYPT
+/**
+ * @brief Encrypt data using AES CBC mode.
+ *
+ * This function can be called multiple times to process multiple blocks.
+ * However, the length of each block must be a multiple of 16 bytes. Otherwise,
+ * the result is undefined.
+ *
+ * Overlapping the input and output is allowed. However, if they are in the same
+ * buffer, the output must not be before the input. Otherwise, the input will be
+ * overwritten before it is read.
+ *
+ * @param ctx The CBC context to use.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param length The length of the data in bytes, must be a multiple of 16.
+ */
+extern void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
+                             const uint8_t *input,
+                             uint8_t *output,
+                             size_t length);
+#endif // UAES_CBC_ENCRYPT
+
+#if UAES_CBC_DECRYPT
+/**
+ * @brief Decrypt data using AES CBC mode.
+ * @param ctx The CBC context to use.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the decrypted data to.
+ * @param length The length of the data in bytes, must be a multiple of 16.
+ */
+extern void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
+                             const uint8_t *input,
+                             uint8_t *output,
+                             size_t length);
+#endif // UAES_CBC_DECRYPT
+#endif // (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
 
 #if UAES_CTR
 typedef struct {
