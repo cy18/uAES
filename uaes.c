@@ -29,7 +29,7 @@
 
 #include <string.h>
 
-#if UAES_ECB_DECRYPT
+#if (UAES_ECB_DECRYPT != 0) || (UAES_CBC_DECRYPT != 0)
 #define ENABLE_INV_CIPHER 1
 #endif
 
@@ -86,6 +86,9 @@ static uint32_t InvSubWord(uint32_t x);
 static void InvShiftRows(State_t *state);
 static uint32_t Multiply(uint32_t x, uint8_t y);
 #endif
+#if (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+static void XorIv(const uint8_t *iv, const uint8_t *input, uint8_t *output);
+#endif
 
 #if (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
 void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx, const uint8_t *key)
@@ -110,6 +113,47 @@ void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
     InvCipher(ctx->key, input, output);
 }
 #endif
+
+#if (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx, const uint8_t *key, const uint8_t *iv)
+{
+    (void)memcpy(ctx->key, key, sizeof(ctx->key));
+    (void)memcpy(ctx->iv, iv, sizeof(ctx->iv));
+}
+
+#if UAES_CBC_ENCRYPT
+void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
+                      const uint8_t *input,
+                      uint8_t *output,
+                      size_t length)
+{
+    const uint8_t *iv = ctx->iv;
+    for (size_t i = 0u; i < length; i += 16u) {
+        XorIv(iv, &input[i], &output[i]);
+        Cipher(ctx->key, &output[i], &output[i]);
+        iv = &output[i];
+    }
+    // Store the iv in the context for later use.
+    (void)memcpy(ctx->iv, iv, sizeof(ctx->iv));
+}
+#endif // UAES_CBC_ENCRYPT
+
+#if UAES_CBC_DECRYPT
+void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
+                      const uint8_t *input,
+                      uint8_t *output,
+                      size_t length)
+{
+    uint8_t next_iv[16u];
+    for (size_t i = 0u; i < length; i += 16u) {
+        (void)memcpy(next_iv, &input[i], 16u);
+        InvCipher(ctx->key, &input[i], &output[i]);
+        XorIv(ctx->iv, &output[i], &output[i]);
+        (void)memcpy(ctx->iv, next_iv, 16u);
+    }
+}
+#endif // UAES_CBC_DECRYPT
+#endif // (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
 
 #if UAES_CTR
 void UAES_CTR_Init(UAES_CTR_Ctx_t *ctx,
@@ -499,4 +543,13 @@ static uint32_t Multiply(uint32_t x, uint8_t y)
     return result;
 }
 
+#endif
+
+#if (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+static void XorIv(const uint8_t *iv, const uint8_t *input, uint8_t *output)
+{
+    for (uint8_t i = 0u; i < 16u; ++i) {
+        output[i] = iv[i] ^ input[i];
+    }
+}
 #endif
