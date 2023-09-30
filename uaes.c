@@ -87,8 +87,15 @@ static void InvShiftRows(State_t *state);
 static uint32_t Multiply(uint32_t x, uint8_t y);
 #endif
 #if (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
-static void XorIv(const uint8_t *iv, const uint8_t *input, uint8_t *output);
-#endif
+static void XorBlocks(const uint8_t *b1, const uint8_t *b2, uint8_t *output);
+#endif // (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+#if UAES_CCM
+static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
+                       const uint8_t *input,
+                       uint8_t *output,
+                       size_t len,
+                       bool encrypt);
+#endif // UAES_CCM
 
 #if (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
 void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx, const uint8_t *key)
@@ -129,7 +136,7 @@ void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
 {
     const uint8_t *iv = ctx->iv;
     for (size_t i = 0u; i < length; i += 16u) {
-        XorIv(iv, &input[i], &output[i]);
+        XorBlocks(iv, &input[i], &output[i]);
         Cipher(ctx->key, &output[i], &output[i]);
         iv = &output[i];
     }
@@ -148,7 +155,7 @@ void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
     for (size_t i = 0u; i < length; i += 16u) {
         (void)memcpy(next_iv, &input[i], 16u);
         InvCipher(ctx->key, &input[i], &output[i]);
-        XorIv(ctx->iv, &output[i], &output[i]);
+        XorBlocks(ctx->iv, &output[i], &output[i]);
         (void)memcpy(ctx->iv, next_iv, 16u);
     }
 }
@@ -177,9 +184,11 @@ void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
                       uint8_t *output,
                       size_t length)
 {
-    uint8_t buf[16u];
-    // Generate the block as it is not stored in the context.
-    Cipher(ctx->key, ctx->counter, buf);
+    uint8_t key_stream[16u];
+    // Generate the key stream as it is not stored in the context.
+    if (ctx->byte_pos < 16u) {
+        Cipher(ctx->key, ctx->counter, key_stream);
+    }
     for (size_t i = 0u; i < length; ++i) {
         // If all the 16 bytes are used, generate the next block.
         if (ctx->byte_pos >= 16u) {
@@ -191,9 +200,9 @@ void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
                     break;
                 }
             }
-            Cipher(ctx->key, ctx->counter, buf);
+            Cipher(ctx->key, ctx->counter, key_stream);
         }
-        output[i] = input[i] ^ buf[ctx->byte_pos];
+        output[i] = input[i] ^ key_stream[ctx->byte_pos];
         ctx->byte_pos++;
     }
 }
@@ -207,6 +216,79 @@ void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
 }
 
 #endif
+
+#if UAES_CCM
+
+void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
+                   const uint8_t *key,
+                   const uint8_t *nonce,
+                   uint8_t nonce_len,
+                   uint32_t data_len,
+                   uint8_t tag_len)
+{
+    (void)memcpy(ctx->key, key, sizeof(ctx->key));
+    uint8_t tag_bits_l = 14u - nonce_len;
+    uint8_t tag_bits_m = (uint8_t)((tag_len - 2u) / 2u);
+    ctx->cbc_buf[0u] = tag_bits_l | (tag_bits_m << 3u);
+    ctx->counter[0u] = tag_bits_l;
+    for (uint8_t i = 1u; i <= nonce_len; ++i) {
+        ctx->counter[i] = nonce[i - 1u];
+        ctx->cbc_buf[i] = nonce[i - 1u];
+    }
+    uint32_t tmp = data_len;
+    for (uint8_t i = 15u; i > nonce_len; --i) {
+        ctx->counter[i] = 0u;
+        ctx->cbc_buf[i] = (uint8_t)tmp;
+        tmp >>= 8u;
+    }
+    ctx->nonce_len = nonce_len;
+    // Counter == 0 is not used for encryption in CCM mode.
+    // set ctx->byte_pos = 16u to skip it.
+    ctx->byte_pos = 16u;
+}
+
+void UAES_CCM_Encrypt(UAES_CCM_Ctx_t *ctx,
+                      const uint8_t *input,
+                      uint8_t *output,
+                      size_t len)
+{
+    CCM_Xcrypt(ctx, input, output, len, true);
+}
+
+void UAES_CCM_Decrypt(UAES_CCM_Ctx_t *ctx,
+                      const uint8_t *input,
+                      uint8_t *output,
+                      size_t len)
+{
+    CCM_Xcrypt(ctx, input, output, len, false);
+}
+
+void UAES_CCM_GenerateTag(UAES_CCM_Ctx_t *ctx, uint8_t *tag, uint8_t tag_len)
+{
+    uint8_t ctr_tag[16u];
+    uint8_t cbc_tag[16u];
+    for (uint8_t i = 0u; i < 16u; ++i) {
+        if (i <= ctx->nonce_len) {
+            ctr_tag[i] = ctx->counter[i];
+        } else {
+            ctr_tag[i] = 0u;
+        }
+    }
+    Cipher(ctx->key, ctr_tag, ctr_tag);
+    Cipher(ctx->key, ctx->cbc_buf, cbc_tag);
+    XorBlocks(ctr_tag, cbc_tag, cbc_tag);
+    (void)memcpy(tag, cbc_tag, tag_len);
+}
+
+bool UAES_CCM_VerifyTag(UAES_CCM_Ctx_t *ctx,
+                        const uint8_t *tag,
+                        uint8_t tag_len)
+{
+    uint8_t expected_tag[16u];
+    UAES_CCM_GenerateTag(ctx, expected_tag, tag_len);
+    return (memcmp(expected_tag, tag, tag_len) == 0);
+}
+#endif // UAES_CCM
 
 // Cipher is the main function that encrypts the PlainText.
 static void Cipher(const uint8_t *key,
@@ -546,10 +628,46 @@ static uint32_t Multiply(uint32_t x, uint8_t y)
 #endif
 
 #if (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
-static void XorIv(const uint8_t *iv, const uint8_t *input, uint8_t *output)
+// Xor all bytes in b1 and b2, and store the result in output.
+static void XorBlocks(const uint8_t *b1, const uint8_t *b2, uint8_t *output)
 {
     for (uint8_t i = 0u; i < 16u; ++i) {
-        output[i] = iv[i] ^ input[i];
+        output[i] = b1[i] ^ b2[i];
     }
 }
-#endif
+#endif // UAES_CBC_ENCRYPT || UAES_CBC_DECRYPT
+
+#if UAES_CCM
+static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
+                       const uint8_t *input,
+                       uint8_t *output,
+                       size_t len,
+                       bool encrypt)
+{
+    uint8_t key_stream[16u];
+    if (ctx->byte_pos < 16u) {
+        Cipher(ctx->key, ctx->counter, key_stream);
+    }
+    for (size_t i = 0u; i < len; ++i) {
+        if (ctx->byte_pos >= 16u) {
+            ctx->byte_pos = 0u;
+            for (size_t j = sizeof(ctx->counter); j > 0u; --j) {
+                ctx->counter[j - 1u]++;
+                if (ctx->counter[j - 1u] != 0u) {
+                    break;
+                }
+            }
+            Cipher(ctx->key, ctx->counter, key_stream);
+            Cipher(ctx->key, ctx->cbc_buf, ctx->cbc_buf);
+        }
+        if (encrypt) {
+            ctx->cbc_buf[ctx->byte_pos] ^= input[i];
+            output[i] = input[i] ^ key_stream[ctx->byte_pos];
+        } else {
+            output[i] = input[i] ^ key_stream[ctx->byte_pos];
+            ctx->cbc_buf[ctx->byte_pos] ^= output[i];
+        }
+        ctx->byte_pos++;
+    }
+}
+#endif // UAES_CCM
