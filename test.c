@@ -299,7 +299,165 @@ static uint8_t TestCtr(void)
     return failure;
 }
 
+#endif // UAES_CTR
+
+#if UAES_CCM
+
+static uint8_t TestCcm(void)
+{
+#if UAES_KEY_SIZE == 256u
+    const uint8_t KEY[32] = { 0xfa, 0x0f, 0xf0, 0x16, 0x9d, 0xc9, 0x57, 0x56,
+                              0x74, 0x06, 0x66, 0x76, 0xcf, 0xb0, 0xb4, 0xeb,
+                              0x89, 0x02, 0xc4, 0x42, 0x69, 0xda, 0x1c, 0xf6,
+                              0xba, 0x66, 0xd3, 0xf8, 0xb6, 0xd4, 0xb1, 0x00 };
+    const uint8_t OUT[64] = { 0xc6, 0xbf, 0x09, 0xfb, 0x30, 0x1c, 0xcc, 0xec,
+                              0xba, 0x48, 0x5a, 0x47, 0x43, 0x63, 0xc1, 0x80,
+                              0xf5, 0x3c, 0x00, 0x55, 0x86, 0xb0, 0xcd, 0xd9,
+                              0x2d, 0x1b, 0xda, 0xee, 0x7a, 0x7a, 0xc1, 0x2f,
+                              0xf9, 0x83, 0xf2, 0x1d, 0x37, 0xf0, 0x67, 0x98,
+                              0x8f, 0x2c, 0xdf, 0xbb, 0xea, 0x7b, 0x63, 0xf7,
+                              0x4e, 0xdb, 0x87, 0x08, 0x90, 0xd6, 0x3b, 0xde,
+                              0x61, 0x37, 0xad, 0x66, 0x21, 0x9c, 0xd1, 0x17 };
+    const uint8_t TAG[16] = { 0xe1, 0x01, 0x06, 0xae, 0xbe, 0x26, 0x0c, 0xc5,
+                              0xb9, 0x51, 0x45, 0x39, 0x2a, 0xce, 0x02, 0x37 };
+#elif UAES_KEY_SIZE == 192u
+    const uint8_t KEY[24] = { 0xa9, 0xea, 0x0e, 0x75, 0x5a, 0x5c, 0x2e, 0x82,
+                              0x10, 0x24, 0x2a, 0x08, 0xe7, 0x07, 0x8f, 0x7f,
+                              0x89, 0x38, 0x5e, 0xb0, 0x94, 0x23, 0x55, 0x51 };
+    const uint8_t OUT[64] = { 0xf6, 0x5e, 0xe8, 0xe4, 0x45, 0xfe, 0x27, 0x84,
+                              0x0d, 0x66, 0xff, 0x45, 0x30, 0x2f, 0x27, 0xf0,
+                              0xb5, 0xfb, 0xf6, 0xd0, 0xb0, 0x57, 0xb7, 0xea,
+                              0xd3, 0xbb, 0x09, 0x62, 0x0b, 0x35, 0xf6, 0x51,
+                              0xae, 0x86, 0x49, 0xb3, 0x51, 0x31, 0x77, 0xe4,
+                              0xff, 0x07, 0x3f, 0x1d, 0x35, 0xb0, 0x14, 0x5c,
+                              0x50, 0x74, 0x84, 0x30, 0xbe, 0x67, 0x4b, 0x64,
+                              0x94, 0x0d, 0xa5, 0xda, 0x07, 0x14, 0x96, 0xcc };
+    const uint8_t TAG[16] = { 0x3a, 0xf9, 0xa6, 0x56, 0x7c, 0x17, 0x32, 0x1d,
+                              0x7e, 0x91, 0xb2, 0xc7, 0xde, 0xcc, 0x15, 0x5f };
+#elif UAES_KEY_SIZE == 128u
+    const uint8_t KEY[16] = { 0x82, 0x56, 0x8b, 0x96, 0xe8, 0xa4, 0xfe, 0xf2,
+                              0x3a, 0x0c, 0x9f, 0xc5, 0xaf, 0xd7, 0x60, 0x84 };
+    const uint8_t OUT[64] = { 0xab, 0x77, 0x29, 0x3a, 0xf7, 0x8a, 0x1f, 0x03,
+                              0x6d, 0x19, 0xc2, 0x76, 0x76, 0xb1, 0xb7, 0xa3,
+                              0x7c, 0xa5, 0xe9, 0x90, 0x75, 0x47, 0xcd, 0x6a,
+                              0x5a, 0x51, 0xf5, 0x7a, 0xb9, 0xa2, 0x2a, 0x23,
+                              0x39, 0x90, 0x9b, 0x7f, 0xe0, 0xa4, 0xd5, 0x7c,
+                              0x65, 0x23, 0xf1, 0x03, 0x12, 0xbc, 0x90, 0x10,
+                              0xab, 0xc5, 0x2d, 0x7b, 0xf2, 0xa7, 0x4b, 0x66,
+                              0x9c, 0x80, 0x36, 0x8a, 0x40, 0xf9, 0xcb, 0x51 };
+    const uint8_t TAG[16] = { 0x25, 0x95, 0x7a, 0x23, 0xff, 0xf0, 0x34, 0x1a,
+                              0x78, 0xa5, 0xec, 0xf4, 0x65, 0x08, 0x8f, 0xbc };
 #endif
+    const uint8_t IN[64] = { 0x44, 0x20, 0x82, 0x3c, 0xfd, 0xe6, 0xf1, 0xc2,
+                             0x6b, 0x30, 0xf9, 0x0e, 0xc7, 0xdd, 0x01, 0xe4,
+                             0x88, 0x75, 0x34, 0xa2, 0x0f, 0x0b, 0x0d, 0x04,
+                             0xc3, 0x6e, 0xd8, 0x0e, 0x71, 0xe0, 0xfd, 0x77,
+                             0xb0, 0x76, 0x70, 0xeb, 0x94, 0x0b, 0xd5, 0x33,
+                             0x5f, 0x97, 0x3d, 0xaa, 0xd8, 0x61, 0x9b, 0x91,
+                             0xff, 0xc9, 0x11, 0xf5, 0x7c, 0xce, 0xd4, 0x58,
+                             0xbb, 0xbf, 0x2c, 0xe0, 0x37, 0x53, 0xc9, 0xbd };
+    const uint8_t NONCE[11] = { 0x37, 0x81, 0x6b, 0xdd, 0x0a, 0x73,
+                                0x09, 0xcb, 0x4a, 0x12, 0x52 };
+    uint8_t tag_out[16];
+    uint8_t result[64];
+    UAES_CCM_Ctx_t ctx;
+    uint8_t failure = 0u;
+    // Test encryption at once
+    UAES_CCM_Init(&ctx, KEY, NONCE, sizeof(NONCE), sizeof(IN), sizeof(TAG));
+    UAES_CCM_Encrypt(&ctx, IN, result, sizeof(IN));
+    UAES_CCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    if (memcmp(OUT, result, sizeof(OUT)) != 0) {
+        (void)printf("UAES_CCM_Encrypt result error\n");
+        PrintArray(OUT, sizeof(OUT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (memcmp(TAG, tag_out, sizeof(TAG)) != 0) {
+        (void)printf("UAES_CCM_Encrypt tag error\n");
+        PrintArray(TAG, sizeof(TAG));
+        PrintArray(tag_out, sizeof(tag_out));
+        failure++;
+    } else {
+        (void)printf("UAES_CCM_Encrypt case 1 passed\n");
+    }
+    // Test encryption by random chunks
+    UAES_CCM_Init(&ctx, KEY, NONCE, sizeof(NONCE), sizeof(IN), sizeof(TAG));
+    size_t pos = 0u;
+    while (pos < sizeof(IN)) {
+        size_t chunk = (size_t)rand() % (sizeof(IN) - pos);
+        if (chunk > 24u) {
+            chunk = 24u;
+        }
+        if (chunk == 0u) {
+            chunk = 1u;
+        }
+        UAES_CCM_Encrypt(&ctx, &IN[pos], &result[pos], chunk);
+        pos += chunk;
+    }
+    UAES_CCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    if (memcmp(OUT, result, sizeof(OUT)) != 0) {
+        (void)printf("UAES_CCM_Encrypt result error\n");
+        PrintArray(OUT, sizeof(OUT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (memcmp(TAG, tag_out, sizeof(TAG)) != 0) {
+        (void)printf("UAES_CCM_GenerateTag error\n");
+        PrintArray(TAG, sizeof(TAG));
+        PrintArray(tag_out, sizeof(tag_out));
+        failure++;
+    } else {
+        (void)printf("UAES_CCM_Encrypt case 2 passed\n");
+    }
+    // Test decryption at once
+    UAES_CCM_Init(&ctx, KEY, NONCE, sizeof(NONCE), sizeof(IN), sizeof(TAG));
+    // This is an intended call to make sure calling UAES_CCM_VerifyTag
+    // after UAES_CCM_GenerateTag works correctly.
+    UAES_CCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    (void)memcpy(result, OUT, sizeof(OUT));
+    UAES_CCM_Decrypt(&ctx, result, result, sizeof(OUT));
+    if (memcmp(IN, result, sizeof(IN)) != 0) {
+        (void)printf("UAES_CCM_Decrypt result error\n");
+        PrintArray(IN, sizeof(IN));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (!UAES_CCM_VerifyTag(&ctx, TAG, sizeof(TAG))) {
+        (void)printf("UAES_CCM_VerifyTag failed\n");
+        failure++;
+    } else {
+        (void)printf("UAES_CCM_Decrypt case 1 passed\n");
+    }
+    // Test decryption by random chunks
+    UAES_CCM_Init(&ctx, KEY, NONCE, sizeof(NONCE), sizeof(IN), sizeof(TAG));
+    // This is an intended call to make sure calling UAES_CCM_VerifyTag
+    // after UAES_CCM_GenerateTag works correctly.
+    UAES_CCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    (void)memcpy(result, OUT, sizeof(OUT));
+    pos = 0u;
+    while (pos < sizeof(OUT)) {
+        size_t chunk = (size_t)rand() % (sizeof(OUT) - pos);
+        if (chunk > 24u) {
+            chunk = 24u;
+        }
+        if (chunk == 0u) {
+            chunk = 1u;
+        }
+        UAES_CCM_Decrypt(&ctx, &OUT[pos], &result[pos], chunk);
+        pos += chunk;
+    }
+    if (memcmp(IN, result, sizeof(IN)) != 0) {
+        (void)printf("UAES_CCM_Decrypt result error\n");
+        PrintArray(IN, sizeof(IN));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (!UAES_CCM_VerifyTag(&ctx, TAG, sizeof(TAG))) {
+        (void)printf("UAES_CCM_VerifyTag failed\n");
+        failure++;
+    } else {
+        (void)printf("UAES_CCM_Decrypt case 2 passed\n");
+    }
+    return failure;
+}
+
+#endif // UAES_CCM
 
 int main(void)
 {
@@ -313,6 +471,9 @@ int main(void)
 #endif
 #if UAES_CTR
     failure += TestCtr();
+#endif
+#if UAES_CCM
+    failure += TestCcm();
 #endif
     return (int)failure;
 }

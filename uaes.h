@@ -57,6 +57,14 @@
 #define UAES_CTR 1
 #endif
 
+#ifndef UAES_CCM
+#define UAES_CCM 1
+#endif
+
+#if UAES_CCM
+#include <stdbool.h>
+#endif
+
 #if (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
 typedef struct {
     uint8_t key[UAES_KEY_SIZE / 8u];
@@ -243,5 +251,122 @@ extern void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
                              size_t length);
 
 #endif
+
+#if UAES_CCM
+
+typedef struct {
+    uint8_t key[UAES_KEY_SIZE / 8u];
+    uint8_t cbc_buf[16u];
+    uint8_t counter[16u];
+    uint8_t byte_pos;
+    uint8_t nonce_len;
+} UAES_CCM_Ctx_t;
+
+/**
+ * @brief Initialize the context for AES CCM mode.
+ *
+ * The CCM mode is an authenticated encryption mode. It use CTR mode for
+ * encryption and CBC-MAC for authentication. Since only AES encryption cipher
+ * is needed in both encryption and authentication, the CCM mode is smaller than
+ * GCM mode.
+ *
+ * The CCM mode need a nonce at initialization. There is no need to keep the
+ * nonce secret, but the nonce should NEVER be reused with the same key. The
+ * nonce length should in range 7~13.
+ *
+ * The data_len is the number of bytes to be encrypted/decrypted. The maximum
+ * data length depends on the nonce length. data_len must be less than
+ * 2^(8 * (15 - nonce_len)). The data_len should be given at initialization as
+ * required by the algorithm of authentication.
+ *
+ * The tag_len is the length of the authentication tag. It must be even and
+ * between 4~16. The recommended tag length is 16. The tag_len should be given
+ * at initialization as required by the algorithm of authentication.
+ *
+ * In the specification of CCM mode, an additional data (AAD) can be given for
+ * authentication. However, since the AAD is not used in most cases, this
+ * library does not support AAD. If AAD is needed, please fire an issue.
+ *
+ * @param ctx The context to initialize.
+ * @param key The 128-, 192-, or 256-bit key.
+ * @param nonce The nonce to use. A same nonce/key pair must not be reused.
+ * @param nonce_len The length of the nonce in bytes. It must be between 7~13.
+ * @param data_len The length of the data in bytes.
+ * @param tag_len The length of the authentication tag in bytes. It must be even
+ * and between 4~16.
+ */
+extern void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
+                          const uint8_t *key,
+                          const uint8_t *nonce,
+                          uint8_t nonce_len,
+                          uint32_t data_len,
+                          uint8_t tag_len);
+
+/**
+ * @brief Encrypt data using AES CCM mode.
+ *
+ * This function can be called multiple times to process multiple
+ * blocks. However, the total length of the data must be the same as the
+ * data_len given in UAES_CCM_Init. Otherwise, the authentication will
+ * fail.
+ *
+ * The input and output can overlap. However, if they are in the same
+ * buffer, the output must not be before the input. Otherwise, the input
+ * will be overwritten before it is read.
+ *
+ * @param ctx The CCM context to use.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param len The length of the data in bytes.
+ */
+extern void UAES_CCM_Encrypt(UAES_CCM_Ctx_t *ctx,
+                             const uint8_t *input,
+                             uint8_t *output,
+                             size_t len);
+
+/**
+ * @brief Decrypt data using AES CCM mode.
+ *
+ * All the rules of UAES_CCM_Encrypt apply here.
+ *
+ * @param ctx The CCM context to use.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the decrypted data to.
+ * @param len The length of the data in bytes.
+ */
+extern void UAES_CCM_Decrypt(UAES_CCM_Ctx_t *ctx,
+                             const uint8_t *input,
+                             uint8_t *output,
+                             size_t len);
+
+/**
+ * @brief Generate the authentication tag.
+ *
+ * This function MUST be called after UAES_CCM_Encrypt or UAES_CCM_Decrypt.
+ * The total length of the encrypted/decrypted data must be exactly the same as
+ * the data_len given in UAES_CCM_Init.
+ *
+ * @param ctx The CCM context to use.
+ * @param tag The buffer to write the tag to.
+ * @param tag_len The length of the tag in bytes, must be the same as the
+ * tag_len given in UAES_CCM_Init.
+ */
+extern void UAES_CCM_GenerateTag(UAES_CCM_Ctx_t *ctx,
+                                 uint8_t *tag,
+                                 uint8_t tag_len);
+
+/**
+ * @brief Verify the authentication tag.
+ * @param ctx The CCM context to use.
+ * @param tag The tag to verify.
+ * @param tag_len The length of the tag in bytes, must be the same as the
+ * tag_len given in UAES_CCM_Init.
+ * @return true if the tag matches, false otherwise.
+ */
+extern bool UAES_CCM_VerifyTag(UAES_CCM_Ctx_t *ctx,
+                               const uint8_t *tag,
+                               uint8_t tag_len);
+
+#endif // UAES_CCM
 
 #endif // UAES_H_
