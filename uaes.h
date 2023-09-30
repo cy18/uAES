@@ -45,6 +45,10 @@
 #define UAES_ECB_DECRYPT 1
 #endif
 
+#ifndef UAES_CTR
+#define UAES_CTR 1
+#endif
+
 #if (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
 typedef struct {
     uint8_t key[UAES_KEY_SIZE / 8u];
@@ -86,5 +90,80 @@ extern void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output);
 #endif // UAES_ECB_DECRYPT
+
+#if UAES_CTR
+typedef struct {
+    uint8_t key[UAES_KEY_SIZE / 8u];
+    uint8_t counter[16u];
+    uint8_t byte_pos;
+} UAES_CTR_Ctx_t;
+
+/**
+ * @brief Initialize the context for AES CTR mode.
+ *
+ * The CTR mode is recommended for most uses. There are many advantages to using
+ * CTR mode, including:
+ * - It is generally considered secure.
+ * - It is a stream cipher, so it does not require padding.
+ * - It only requires the encryption cipher of AES, thus not only faster than
+ *  CBC, but also requires less code space.
+ * It is worth noting that CTR mode need a nonce at initialization. There is no
+ * need to keep the nonce secret, but the nonce should NEVER be reused with the
+ * same key. The nonce length is in range 0~15 and the recommended length
+ * is 8 bytes.
+ *
+ * @param ctx The context to initialize.
+ * @param key The 128-, 192-, or 256-bit key.
+ * @param nonce The nonce to use. A same nonce/key pair must not be reused.
+ * @param nonce_len The length of the nonce in bytes. It must be between 0~15.
+ */
+extern void UAES_CTR_Init(UAES_CTR_Ctx_t *ctx,
+                          const uint8_t *key,
+                          const uint8_t *nonce,
+                          size_t nonce_len);
+
+/**
+ * @brief Encrypt data using AES CTR mode.
+ *
+ * As a stream cipher, this function can be called multiple times to process
+ * multiple blocks of arbitrary length.
+ * It is allowed for the input and output to overlap. However, the output should
+ * not be before the input in a same buffer. This is because the function
+ * process the data byte by byte. If the output is before the input, the input
+ * will be overwritten before it is read.
+ * Example:
+ *   uint8_t buf[256u];
+ *   UAES_CTR_Encrypt(&ctx, buf, buf, 256u); // Legal
+ *   UAES_CTR_Encrypt(&ctx, buf, buf + 16u, 240u); // Illegal
+ *   UAES_CTR_Encrypt(&ctx, buf + 16u, buf, 240u); // Legal
+ *
+ * @param ctx The CTR context to use.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param length The length of the data in bytes.
+ */
+extern void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
+                             const uint8_t *input,
+                             uint8_t *output,
+                             size_t length);
+
+/**
+ * @brief Decrypt data using AES CTR mode.
+ *
+ * Since the encryption and decryption are the same in CTR mode, this function
+ * calls UAES_CTR_Encrypt internally. All the rules of UAES_CTR_Encrypt apply
+ * here.
+ *
+ * @param ctx The CTR context to use.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the decrypted data to.
+ * @param length The length of the data in bytes.
+ */
+extern void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
+                             const uint8_t *input,
+                             uint8_t *output,
+                             size_t length);
+
+#endif
 
 #endif // UAES_H_

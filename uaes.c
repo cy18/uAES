@@ -111,6 +111,59 @@ void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
 }
 #endif
 
+#if UAES_CTR
+void UAES_CTR_Init(UAES_CTR_Ctx_t *ctx,
+                   const uint8_t *key,
+                   const uint8_t *nonce,
+                   size_t nonce_len)
+{
+    (void)memcpy(ctx->key, key, sizeof(ctx->key));
+    for (size_t i = 0u; i < sizeof(ctx->counter); ++i) {
+        if (i < nonce_len) {
+            ctx->counter[i] = nonce[i];
+        } else {
+            ctx->counter[i] = 0u;
+        }
+    }
+    ctx->byte_pos = 0u;
+}
+
+void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
+                      const uint8_t *input,
+                      uint8_t *output,
+                      size_t length)
+{
+    uint8_t buf[16u];
+    // Generate the block as it is not stored in the context.
+    Cipher(ctx->key, ctx->counter, buf);
+    for (size_t i = 0u; i < length; ++i) {
+        // If all the 16 bytes are used, generate the next block.
+        if (ctx->byte_pos >= 16u) {
+            ctx->byte_pos = 0u;
+            // Increment the counter.
+            for (size_t j = sizeof(ctx->counter); j > 0u; --j) {
+                ctx->counter[j - 1u]++;
+                if (ctx->counter[j - 1u] != 0u) {
+                    break;
+                }
+            }
+            Cipher(ctx->key, ctx->counter, buf);
+        }
+        output[i] = input[i] ^ buf[ctx->byte_pos];
+        ctx->byte_pos++;
+    }
+}
+
+void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
+                      const uint8_t *input,
+                      uint8_t *output,
+                      size_t length)
+{
+    UAES_CTR_Encrypt(ctx, input, output, length);
+}
+
+#endif
+
 // Cipher is the main function that encrypts the PlainText.
 static void Cipher(const uint8_t *key,
                    const uint8_t input[16u],
