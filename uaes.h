@@ -264,6 +264,7 @@ typedef struct {
     uint8_t counter[16u];
     uint8_t byte_pos;
     uint8_t nonce_len;
+    uint8_t aad_byte_pos;
 } UAES_CCM_Ctx_t;
 
 /**
@@ -278,6 +279,13 @@ typedef struct {
  * nonce secret, but the nonce should NEVER be reused with the same key. The
  * nonce length should in range 7~13.
  *
+ * The aad_len is the number of bytes of the AAD (Additional Authenticate Data).
+ * If there is no AAD, the aad_len should be 0. If aad_len is not 0, the
+ * function UAES_CCM_AddAad must be called after UAES_CCM_Init and before
+ * UAES_CCM_Encrypt or UAES_CCM_Decrypt. The total length of the AAD must be the
+ * same as the aad_len given in UAES_CCM_Init. Otherwise, the authentication
+ * will fail.
+ *
  * The data_len is the number of bytes to be encrypted/decrypted. The maximum
  * data length depends on the nonce length. data_len must be less than
  * 2^(8 * (15 - nonce_len)). The data_len should be given at initialization as
@@ -287,14 +295,11 @@ typedef struct {
  * between 4~16. The recommended tag length is 16. The tag_len should be given
  * at initialization as required by the algorithm of authentication.
  *
- * In the specification of CCM mode, an additional data (AAD) can be given for
- * authentication. However, since the AAD is not used in most cases, this
- * library does not support AAD. If AAD is needed, please fire an issue.
- *
  * @param ctx The context to initialize.
  * @param key The 128-, 192-, or 256-bit key.
  * @param nonce The nonce to use. A same nonce/key pair must not be reused.
  * @param nonce_len The length of the nonce in bytes. It must be between 7~13.
+ * @param aad_len The length of the AAD in bytes.
  * @param data_len The length of the data in bytes.
  * @param tag_len The length of the authentication tag in bytes. It must be even
  * and between 4~16.
@@ -303,8 +308,26 @@ extern void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
                           const uint8_t *key,
                           const uint8_t *nonce,
                           uint8_t nonce_len,
-                          uint32_t data_len,
+                          uint64_t aad_len,
+                          uint64_t data_len,
                           uint8_t tag_len);
+
+/**
+ * @brief Add AAD (Additional Authenticate Data).
+ *
+ * This function MUST be called after UAES_CCM_Init and before UAES_CCM_Encrypt
+ * or UAES_CCM_Decrypt. To make the library compact, this condition is not
+ * checked. If this condition is not met, the result is undefined.
+ *
+ * This function can be called multiple times to to process long AAD in chunks.
+ *
+ * @param ctx The CCM context to use.
+ * @param aad The AAD to add.
+ * @param len The length of the AAD in bytes.
+ */
+extern void UAES_CCM_AddAad(UAES_CCM_Ctx_t *ctx,
+                            const uint8_t *aad,
+                            size_t len);
 
 /**
  * @brief Encrypt data using AES CCM mode.
