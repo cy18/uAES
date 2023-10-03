@@ -31,10 +31,16 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#ifndef UAES_KEY_SIZE
-#define UAES_KEY_SIZE 128u
-// #define UAES_KEY_SIZE 192u
-// #define UAES_KEY_SIZE 256u
+#ifndef UAES_ENABLE_128
+#define UAES_ENABLE_128 1
+#endif
+
+#ifndef UAES_ENABLE_192
+#define UAES_ENABLE_192 1
+#endif
+
+#ifndef UAES_ENABLE_256
+#define UAES_ENABLE_256 1
 #endif
 
 #ifndef UAES_ECB_ENCRYPT
@@ -69,9 +75,24 @@
 #include <stdbool.h>
 #endif
 
+#if UAES_ENABLE_256
+#define UAES_MAX_KEY_SIZE 256u
+#elif UAES_ENABLE_192
+#define UAES_MAX_KEY_SIZE 192u
+#elif UAES_ENABLE_128
+#define UAES_MAX_KEY_SIZE 128u
+#else
+#error "No key size specified."
+#endif
+
+typedef struct {
+    uint32_t words[UAES_MAX_KEY_SIZE / 32u];
+    uint8_t num_words;
+} UAES_AES_Ctx_t;
+
 #if (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
 typedef struct {
-    uint8_t key[UAES_KEY_SIZE / 8u];
+    UAES_AES_Ctx_t aes_ctx;
 } UAES_ECB_Ctx_t;
 
 /**
@@ -80,9 +101,12 @@ typedef struct {
  * Note that ECB is considered insecure for most uses.
  *
  * @param ctx The context to initialize.
- * @param key The 128-, 192-, or 256-bit key.
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
  */
-extern void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx, const uint8_t *key);
+extern void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx,
+                          const uint8_t *key,
+                          size_t key_len);
 #endif
 
 #if UAES_ECB_ENCRYPT
@@ -113,7 +137,7 @@ extern void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
 
 #if (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
 typedef struct {
-    uint8_t key[UAES_KEY_SIZE / 8u];
+    UAES_AES_Ctx_t aes_ctx;
     uint8_t iv[16u];
 } UAES_CBC_Ctx_t;
 
@@ -136,11 +160,13 @@ typedef struct {
  * if possible.
  *
  * @param ctx The context to initialize.
- * @param key The 128-, 192-, or 256-bit key.
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
  * @param iv The 16-byte initialization vector.
  */
 extern void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
                           const uint8_t *key,
+                          size_t key_len,
                           const uint8_t *iv);
 
 #if UAES_CBC_ENCRYPT
@@ -183,9 +209,9 @@ extern void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
 
 #if UAES_CTR
 typedef struct {
-    uint8_t key[UAES_KEY_SIZE / 8u];
-    uint8_t counter[16u];
+    UAES_AES_Ctx_t aes_ctx;
     uint8_t byte_pos;
+    uint8_t counter[16u];
 } UAES_CTR_Ctx_t;
 
 /**
@@ -203,12 +229,14 @@ typedef struct {
  * is 8 bytes.
  *
  * @param ctx The context to initialize.
- * @param key The 128-, 192-, or 256-bit key.
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
  * @param nonce The nonce to use. A same nonce/key pair must not be reused.
  * @param nonce_len The length of the nonce in bytes. It must be between 0~15.
  */
 extern void UAES_CTR_Init(UAES_CTR_Ctx_t *ctx,
                           const uint8_t *key,
+                          size_t key_len,
                           const uint8_t *nonce,
                           size_t nonce_len);
 
@@ -259,12 +287,12 @@ extern void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
 #if UAES_CCM
 
 typedef struct {
-    uint8_t key[UAES_KEY_SIZE / 8u];
-    uint8_t cbc_buf[16u];
-    uint8_t counter[16u];
+    UAES_AES_Ctx_t aes_ctx;
     uint8_t byte_pos;
     uint8_t nonce_len;
     uint8_t aad_byte_pos;
+    uint8_t cbc_buf[16u];
+    uint8_t counter[16u];
 } UAES_CCM_Ctx_t;
 
 /**
@@ -296,7 +324,8 @@ typedef struct {
  * at initialization as required by the algorithm of authentication.
  *
  * @param ctx The context to initialize.
- * @param key The 128-, 192-, or 256-bit key.
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
  * @param nonce The nonce to use. A same nonce/key pair must not be reused.
  * @param nonce_len The length of the nonce in bytes. It must be between 7~13.
  * @param aad_len The length of the AAD in bytes.
@@ -306,6 +335,7 @@ typedef struct {
  */
 extern void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
                           const uint8_t *key,
+                          size_t key_len,
                           const uint8_t *nonce,
                           uint8_t nonce_len,
                           uint64_t aad_len,
@@ -399,7 +429,7 @@ extern bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
 #if UAES_GCM
 
 typedef struct {
-    uint8_t key[UAES_KEY_SIZE / 8u];
+    UAES_AES_Ctx_t aes_ctx;
     uint8_t counter[16];
     size_t data_len;
     size_t aad_len;
@@ -426,12 +456,14 @@ typedef struct {
  * GCM mode. However, it is HIGHLY recommended to use a 12-byte (96-bit)  IV.
  *
  * @param ctx The context to initialize.
- * @param key The 128-, 192-, or 256-bit key.
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
  * @param iv The initialization vector to use.
  * @param iv_len The length of the initialization vector in bytes.
  */
 extern void UAES_GCM_Init(UAES_GCM_Ctx_t *ctx,
                           const uint8_t *key,
+                          size_t key_len,
                           const uint8_t *iv,
                           size_t iv_len);
 
