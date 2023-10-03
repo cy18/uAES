@@ -24,14 +24,6 @@
 
 cmake_minimum_required(VERSION 3.12)
 
-# Enable compile_commands.json
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-project(uaes C)
-
-add_compile_options(-Os -Wall -Wextra -Wpedantic)
-
-add_subdirectory(uaes)
-add_subdirectory(tests)
-
-include(cmake/cppcheck.cmake)
+add_library(uaes)
+target_sources(uaes PRIVATE ${CMAKE_CURRENT_LIST_DIR}/uaes.c)
+target_include_directories(uaes PUBLIC ${CMAKE_CURRENT_LIST_DIR})

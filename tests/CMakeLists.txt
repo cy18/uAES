@@ -24,14 +24,23 @@
 
 cmake_minimum_required(VERSION 3.12)
 
-# Enable compile_commands.json
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+add_executable(test_128 test.c)
+target_compile_definitions(test_128 PRIVATE TEST_KEY_SIZE=128u)
+target_link_libraries(test_128 uaes)
 
-project(uaes C)
+add_executable(test_192 test.c)
+target_compile_definitions(test_192 PRIVATE TEST_KEY_SIZE=192u)
+target_link_libraries(test_192 uaes)
 
-add_compile_options(-Os -Wall -Wextra -Wpedantic)
+add_executable(test_256 test.c)
+target_compile_definitions(test_256 PRIVATE TEST_KEY_SIZE=256u)
+target_link_libraries(test_256 uaes)
 
-add_subdirectory(uaes)
-add_subdirectory(tests)
-
-include(cmake/cppcheck.cmake)
+# Add tests as custom targets
+add_custom_target(tests
+    COMMAND test_128
+    COMMAND test_192
+    COMMAND test_256
+    DEPENDS test_128 test_192 test_256
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
