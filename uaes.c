@@ -71,6 +71,7 @@ static uint32_t SubWord(uint32_t x);
 static void ShiftRows(State_t *state);
 static void MixColumns(State_t *state);
 static uint32_t Times2(uint32_t x);
+
 #if ENABLE_INV_CIPHER
 static void InvCipher(const UAES_AES_Ctx_t *ctx,
                       const uint8_t input[16u],
@@ -81,9 +82,11 @@ static uint32_t InvSubWord(uint32_t x);
 static void InvShiftRows(State_t *state);
 static uint32_t Multiply(uint32_t x, uint8_t y);
 #endif
+
 #if (UAES_ENABLE_CBC != 0) || (UAES_ENABLE_CCM != 0)
 static void XorBlocks(const uint8_t *b1, const uint8_t *b2, uint8_t *output);
 #endif
+
 #if UAES_ENABLE_CCM
 static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
                        const uint8_t *input,
@@ -91,6 +94,7 @@ static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
                        size_t len,
                        bool encrypt);
 #endif // UAES_ENABLE_CCM
+
 #if UAES_ENABLE_GCM
 static void DataToGhashState(const uint8_t data[16u], uint32_t u32[4u]);
 static void GhashStateToData(const uint32_t u32[4u], uint8_t data[16u]);
@@ -232,11 +236,9 @@ void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
 {
     UAES_CTR_Encrypt(ctx, input, output, len);
 }
-
 #endif
 
 #if UAES_ENABLE_CCM
-
 void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
                    const uint8_t *key,
                    size_t key_len,
@@ -353,7 +355,6 @@ bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
 #endif // UAES_ENABLE_CCM
 
 #if UAES_ENABLE_GCM
-
 void UAES_GCM_Init(UAES_GCM_Ctx_t *ctx,
                    const uint8_t *key,
                    size_t key_len,
@@ -562,7 +563,6 @@ void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
         ctx->data_len++;
     }
 }
-
 #endif // UAES_ENABLE_GCM
 
 // Cipher is the main function that encrypts the PlainText.
@@ -930,7 +930,6 @@ static uint32_t Multiply(uint32_t x, uint8_t y)
     }
     return result;
 }
-
 #endif
 
 #if (UAES_ENABLE_CBC != 0) || (UAES_ENABLE_CCM != 0)
@@ -979,7 +978,6 @@ static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
 #endif // UAES_ENABLE_CCM
 
 #if UAES_ENABLE_GCM
-
 // Convert 16 uint8_t to 4 uint32_t as big endian.
 static void DataToGhashState(const uint8_t data[16u], uint32_t u32[4u])
 {
@@ -1002,5 +1000,4 @@ static void GhashStateToData(const uint32_t u32[4u], uint8_t data[16u])
         }
     }
 }
-
 #endif // UAES_ENABLE_GCM
