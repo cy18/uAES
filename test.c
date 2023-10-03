@@ -459,6 +459,250 @@ static uint8_t TestCcm(void)
 
 #endif // UAES_CCM
 
+#if UAES_GCM
+
+static uint8_t TestGcm(void)
+{
+#if UAES_KEY_SIZE == 128u
+    const uint8_t KEY[16] = {
+        0xfb, 0x72, 0xa0, 0x0d, 0x02, 0x60, 0xd6, 0x7c,
+        0x28, 0x8a, 0x92, 0xd1, 0xba, 0x74, 0x6c, 0x93,
+    };
+
+    const uint8_t CT[16] = {
+        0x1a, 0x9b, 0x61, 0xd4, 0x45, 0x32, 0xf7, 0x06,
+        0x77, 0x0b, 0xed, 0x79, 0x6a, 0x70, 0x61, 0x20,
+    };
+
+    const uint8_t TAG[16] = {
+        0xcc, 0x0a, 0x19, 0xc5, 0x20, 0x03, 0x68, 0xeb,
+        0x5e, 0xcd, 0x25, 0x25, 0xfe, 0x33, 0x5d, 0xb4,
+    };
+
+    const uint8_t CT2[16] = {
+        0x80, 0x22, 0xf0, 0x62, 0x88, 0x95, 0xc4, 0xab,
+        0x41, 0x2e, 0x47, 0x96, 0xe9, 0x7e, 0x56, 0x61,
+    };
+
+    const uint8_t TAG2[16] = {
+        0xe6, 0x40, 0x23, 0x79, 0x5e, 0x9d, 0x3f, 0x00,
+        0x2d, 0x0d, 0x55, 0x83, 0x6d, 0x4d, 0x68, 0xfb,
+    };
+
+#elif UAES_KEY_SIZE == 192u
+    const uint8_t KEY[24] = {
+        0xfc, 0xbb, 0xe8, 0x53, 0xee, 0x19, 0x6f, 0xf9, 0x36, 0x3c, 0xb9, 0xfd,
+        0x57, 0x79, 0x21, 0x25, 0x52, 0xb9, 0x24, 0xef, 0x2f, 0x03, 0x4a, 0x6f,
+    };
+
+    const uint8_t CT[16] = {
+        0x0f, 0xf7, 0xc5, 0x5d, 0x37, 0xb6, 0xce, 0x83,
+        0x98, 0x79, 0xb6, 0x69, 0xa8, 0x48, 0xd4, 0x7e,
+    };
+
+    const uint8_t TAG[16] = {
+        0x05, 0xd1, 0xda, 0x84, 0xec, 0x70, 0x3e, 0xe6,
+        0x48, 0x2e, 0xce, 0x80, 0xd2, 0xb1, 0x63, 0xbe,
+    };
+
+    const uint8_t CT2[16] = {
+        0xb7, 0x76, 0x3b, 0x1f, 0xbf, 0xd3, 0x0c, 0xf0,
+        0xd0, 0x58, 0xf8, 0xdd, 0xe6, 0x03, 0x78, 0x08,
+    };
+
+    const uint8_t TAG2[16] = {
+        0x1c, 0x80, 0xf8, 0x0b, 0x0c, 0xc4, 0xa5, 0x33,
+        0xd0, 0xeb, 0xf7, 0xc5, 0xf3, 0xa8, 0x92, 0x81,
+    };
+
+#elif UAES_KEY_SIZE == 256u
+    const uint8_t KEY[32] = {
+        0x47, 0x04, 0x80, 0x96, 0x9e, 0x68, 0x4a, 0xb7, 0x9d, 0x0d, 0x81,
+        0xe8, 0x7f, 0xc8, 0xd1, 0x9c, 0xca, 0xf6, 0x22, 0x1e, 0xe3, 0x1e,
+        0xf8, 0x63, 0x54, 0xab, 0xa1, 0xec, 0x11, 0x35, 0xc7, 0x43,
+    };
+
+    const uint8_t CT[16] = {
+        0xce, 0x8b, 0x56, 0xb0, 0x1a, 0x8d, 0x56, 0xaf,
+        0x62, 0xab, 0x21, 0xca, 0xd7, 0xa7, 0x38, 0xcf,
+    };
+
+    const uint8_t TAG[16] = {
+        0xad, 0x9d, 0x54, 0x50, 0x84, 0x91, 0x0e, 0xd2,
+        0x75, 0xa8, 0xc0, 0x49, 0xd6, 0x49, 0x69, 0xed,
+    };
+
+    const uint8_t CT2[16] = {
+        0xac, 0x47, 0xc8, 0x7a, 0x75, 0xe2, 0xff, 0x03,
+        0xfc, 0xe5, 0x4d, 0x5c, 0x98, 0x13, 0x1b, 0xc4,
+    };
+
+    const uint8_t TAG2[16] = {
+        0x8a, 0xf5, 0xb3, 0xfd, 0xe2, 0x05, 0xbc, 0x3c,
+        0xa6, 0x76, 0xb8, 0xbe, 0x8e, 0x87, 0x64, 0xb7,
+    };
+
+#endif
+    const uint8_t AAD[16] = {
+        0x8a, 0xc2, 0x83, 0x7f, 0xe6, 0x44, 0xa0, 0xc6,
+        0x47, 0x29, 0x1a, 0xb2, 0xc5, 0x6c, 0xb0, 0x10,
+    };
+
+    const uint8_t PT[16] = {
+        0xec, 0xd0, 0xa6, 0x3c, 0xf6, 0x26, 0xd6, 0x41,
+        0x9a, 0x0a, 0xaa, 0xe7, 0xa4, 0x16, 0xfe, 0x49,
+    };
+
+    const uint8_t IV[12] = {
+        0x68, 0xc6, 0xe7, 0xc1, 0xb6, 0xdd, 0x68, 0xdb, 0x63, 0x08, 0xee, 0x55,
+    };
+
+    const uint8_t IV2[30] = {
+        0x3f, 0xb3, 0xaf, 0x1e, 0x15, 0xd6, 0xf1, 0xc1, 0x54, 0x85,
+        0xf8, 0xcb, 0xa6, 0x77, 0xae, 0x29, 0x5f, 0x8e, 0x61, 0x1e,
+        0x37, 0x7c, 0xba, 0x0b, 0x97, 0xcd, 0x72, 0xb9, 0x32, 0x5b,
+    };
+    UAES_GCM_Ctx_t ctx;
+    uint8_t result[64];
+    uint8_t tag_out[16];
+    uint8_t failure = 0u;
+    // Test encryption at once
+    UAES_GCM_Init(&ctx, KEY, IV, sizeof(IV));
+    UAES_GCM_AddAad(&ctx, AAD, sizeof(AAD));
+    UAES_GCM_Encrypt(&ctx, PT, result, sizeof(PT));
+    UAES_GCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    if (memcmp(CT, result, sizeof(CT)) != 0) {
+        (void)printf("UAES_GCM_Encrypt result error\n");
+        PrintArray(CT, sizeof(CT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (memcmp(TAG, tag_out, sizeof(TAG)) != 0) {
+        (void)printf("UAES_GCM_Encrypt tag error\n");
+        PrintArray(TAG, sizeof(TAG));
+        PrintArray(tag_out, sizeof(tag_out));
+        failure++;
+    } else {
+        (void)printf("UAES_GCM_Encrypt case 1 passed\n");
+    }
+    // Test encryption by random chunks
+    UAES_GCM_Init(&ctx, KEY, IV, sizeof(IV));
+    UAES_GCM_AddAad(&ctx, AAD, sizeof(AAD));
+    size_t pos = 0u;
+    while (pos < sizeof(PT)) {
+        size_t chunk = (size_t)rand() % (sizeof(PT) - pos);
+        if (chunk > 24u) {
+            chunk = 24u;
+        }
+        if (chunk == 0u) {
+            chunk = 1u;
+        }
+        UAES_GCM_Encrypt(&ctx, &PT[pos], &result[pos], chunk);
+        pos += chunk;
+    }
+    UAES_GCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    if (memcmp(CT, result, sizeof(CT)) != 0) {
+        (void)printf("UAES_GCM_Encrypt result error\n");
+        PrintArray(CT, sizeof(CT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (memcmp(TAG, tag_out, sizeof(TAG)) != 0) {
+        (void)printf("UAES_GCM_Encrypt tag error\n");
+        PrintArray(TAG, sizeof(TAG));
+        PrintArray(tag_out, sizeof(tag_out));
+        failure++;
+    } else {
+        (void)printf("UAES_GCM_Encrypt case 2 passed\n");
+    }
+    // Test nonce2 with length other than 12
+    UAES_GCM_Init(&ctx, KEY, IV2, sizeof(IV2));
+    UAES_GCM_AddAad(&ctx, AAD, sizeof(AAD));
+    UAES_GCM_Encrypt(&ctx, PT, result, sizeof(PT));
+    UAES_GCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    if (memcmp(CT2, result, sizeof(CT2)) != 0) {
+        (void)printf("UAES_GCM_Encrypt result error\n");
+        PrintArray(CT2, sizeof(CT2));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (memcmp(TAG2, tag_out, sizeof(TAG2)) != 0) {
+        (void)printf("UAES_GCM_Encrypt tag error\n");
+        PrintArray(TAG2, sizeof(TAG2));
+        PrintArray(tag_out, sizeof(tag_out));
+        failure++;
+    } else {
+        (void)printf("UAES_GCM_Encrypt case 3 passed\n");
+    }
+
+    // Test decryption at once
+    UAES_GCM_Init(&ctx, KEY, IV, sizeof(IV));
+    UAES_GCM_AddAad(&ctx, AAD, sizeof(AAD));
+    (void)memcpy(result, CT, sizeof(CT));
+    UAES_GCM_Decrypt(&ctx, result, result, sizeof(CT));
+    // This is an intended call to make sure multiple calls to
+    // UAES_GCM_VerifyTag works correctly.
+    UAES_GCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    if (memcmp(PT, result, sizeof(PT)) != 0) {
+        (void)printf("UAES_GCM_Decrypt result error\n");
+        PrintArray(PT, sizeof(PT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (!UAES_GCM_VerifyTag(&ctx, TAG, sizeof(TAG))) {
+        (void)printf("UAES_GCM_VerifyTag failed\n");
+        failure++;
+    } else {
+        (void)printf("UAES_GCM_Decrypt case 1 passed\n");
+    }
+    // Test decryption by random chunks
+    UAES_GCM_Init(&ctx, KEY, IV, sizeof(IV));
+    UAES_GCM_AddAad(&ctx, AAD, sizeof(AAD));
+    (void)memcpy(result, CT, sizeof(CT));
+    pos = 0u;
+    while (pos < sizeof(CT)) {
+        size_t chunk = (size_t)rand() % (sizeof(CT) - pos);
+        if (chunk > 24u) {
+            chunk = 24u;
+        }
+        if (chunk == 0u) {
+            chunk = 1u;
+        }
+        UAES_GCM_Decrypt(&ctx, &CT[pos], &result[pos], chunk);
+        pos += chunk;
+    }
+    UAES_GCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    if (memcmp(PT, result, sizeof(PT)) != 0) {
+        (void)printf("UAES_GCM_Decrypt result error\n");
+        PrintArray(PT, sizeof(PT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (!UAES_GCM_VerifyTag(&ctx, TAG, sizeof(TAG))) {
+        (void)printf("UAES_GCM_VerifyTag failed\n");
+        failure++;
+    } else {
+        (void)printf("UAES_GCM_Decrypt case 2 passed\n");
+    }
+    // Test nonce2 with length other than 12
+    UAES_GCM_Init(&ctx, KEY, IV2, sizeof(IV2));
+    UAES_GCM_AddAad(&ctx, AAD, sizeof(AAD));
+    (void)memcpy(result, CT2, sizeof(CT2));
+    UAES_GCM_Decrypt(&ctx, result, result, sizeof(CT2));
+    // This is an intended call to make sure multiple calls to
+    // UAES_GCM_GenerateTag works correctly.
+    UAES_GCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    if (memcmp(PT, result, sizeof(PT)) != 0) {
+        (void)printf("UAES_GCM_Decrypt result error\n");
+        PrintArray(PT, sizeof(PT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (!UAES_GCM_VerifyTag(&ctx, TAG2, sizeof(TAG2))) {
+        (void)printf("UAES_GCM_VerifyTag failed\n");
+        failure++;
+    } else {
+        (void)printf("UAES_GCM_Decrypt case 3 passed\n");
+    }
+    return failure;
+}
+
+#endif // UAES_GCM
+
 int main(void)
 {
     uint8_t failure = 0u;
@@ -474,6 +718,9 @@ int main(void)
 #endif
 #if UAES_CCM
     failure += TestCcm();
+#endif
+#if UAES_GCM
+    failure += TestGcm();
 #endif
     return (int)failure;
 }
