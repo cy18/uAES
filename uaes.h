@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * https://github.com/cy18/uAES
+ * github.com/cy18/uAES
  *
  */
 
@@ -119,7 +119,7 @@ typedef struct {
  * As a block cipher, the CBC mode requires padding if the data length is not a
  * multiple of 16 bytes. The padding method is not specified in this library. It
  * is recommended to use PKCS#7 padding.
- * (https://en.wikipedia.org/wiki/Padding_(cryptography)#PKCS7)
+ * (en.wikipedia.org/wiki/Padding_(cryptography)#PKCS7)
  *
  * CBC mode need an initialization vector (IV) at initialization. The IV is
  * generally considered public information. However, the IV should NEVER be
@@ -219,9 +219,9 @@ extern void UAES_CTR_Init(UAES_CTR_Ctx_t *ctx,
  * will be overwritten before it is read.
  * Example:
  *   uint8_t buf[256u];
- *   UAES_CTR_Encrypt(&ctx, buf, buf, 256u); // Legal
- *   UAES_CTR_Encrypt(&ctx, buf, buf + 16u, 240u); // Illegal
- *   UAES_CTR_Encrypt(&ctx, buf + 16u, buf, 240u); // Legal
+ *   UAES_CTR_Encrypt(&ctx, buf, buf, 256u); Legal
+ *   UAES_CTR_Encrypt(&ctx, buf, buf + 16u, 240u); Illegal
+ *   UAES_CTR_Encrypt(&ctx, buf + 16u, buf, 240u); Legal
  *
  * @param ctx The CTR context to use.
  * @param input The data to encrypt.
@@ -351,7 +351,7 @@ extern void UAES_CCM_Decrypt(UAES_CCM_Ctx_t *ctx,
  * @param tag_len The length of the tag in bytes, must be the same as the
  * tag_len given in UAES_CCM_Init.
  */
-extern void UAES_CCM_GenerateTag(UAES_CCM_Ctx_t *ctx,
+extern void UAES_CCM_GenerateTag(const UAES_CCM_Ctx_t *ctx,
                                  uint8_t *tag,
                                  uint8_t tag_len);
 
@@ -363,7 +363,7 @@ extern void UAES_CCM_GenerateTag(UAES_CCM_Ctx_t *ctx,
  * tag_len given in UAES_CCM_Init.
  * @return true if the tag matches, false otherwise.
  */
-extern bool UAES_CCM_VerifyTag(UAES_CCM_Ctx_t *ctx,
+extern bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
                                const uint8_t *tag,
                                uint8_t tag_len);
 
