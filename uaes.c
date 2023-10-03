@@ -81,9 +81,9 @@ static uint32_t InvSubWord(uint32_t x);
 static void InvShiftRows(State_t *state);
 static uint32_t Multiply(uint32_t x, uint8_t y);
 #endif
-#if (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
+#if (UAES_ENABLE_CBC != 0) || (UAES_ENABLE_CCM != 0)
 static void XorBlocks(const uint8_t *b1, const uint8_t *b2, uint8_t *output);
-#endif // (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
+#endif
 #if UAES_ENABLE_CCM
 static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
                        const uint8_t *input,
@@ -104,12 +104,12 @@ void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
                 bool encrypt);
 #endif
 
-#if (UAES_ENABLE_ECB_ENCRYPT != 0) || (UAES_ENABLE_ECB_DECRYPT != 0)
+#if UAES_ENABLE_ECB
 void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx, const uint8_t *key, size_t key_len)
 {
     InitAesCtx(&ctx->aes_ctx, key, key_len);
 }
-#endif
+#endif // UAES_ENABLE_ECB
 
 #if UAES_ENABLE_ECB_ENCRYPT
 void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
@@ -121,7 +121,8 @@ void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
         Cipher(&ctx->aes_ctx, &input[i], &output[i]);
     }
 }
-#endif
+#endif // UAES_ENABLE_ECB_ENCRYPT
+
 #if UAES_ENABLE_ECB_DECRYPT
 void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
                       const uint8_t *input,
@@ -132,9 +133,9 @@ void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
         InvCipher(&ctx->aes_ctx, &input[i], &output[i]);
     }
 }
-#endif
+#endif // UAES_ENABLE_ECB_DECRYPT
 
-#if (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
+#if UAES_ENABLE_CBC
 void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
                    const uint8_t *key,
                    size_t key_len,
@@ -143,6 +144,7 @@ void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
     InitAesCtx(&ctx->aes_ctx, key, key_len);
     (void)memcpy(ctx->iv, iv, sizeof(ctx->iv));
 }
+#endif // UAES_ENABLE_CBC
 
 #if UAES_ENABLE_CBC_ENCRYPT
 void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
@@ -176,7 +178,6 @@ void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
     }
 }
 #endif // UAES_ENABLE_CBC_DECRYPT
-#endif // (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
 
 #if UAES_ENABLE_CTR
 void UAES_CTR_Init(UAES_CTR_Ctx_t *ctx,
@@ -932,7 +933,7 @@ static uint32_t Multiply(uint32_t x, uint8_t y)
 
 #endif
 
-#if (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
+#if (UAES_ENABLE_CBC != 0) || (UAES_ENABLE_CCM != 0)
 // Xor all bytes in b1 and b2, and store the result in output.
 static void XorBlocks(const uint8_t *b1, const uint8_t *b2, uint8_t *output)
 {
@@ -940,7 +941,7 @@ static void XorBlocks(const uint8_t *b1, const uint8_t *b2, uint8_t *output)
         output[i] = b1[i] ^ b2[i];
     }
 }
-#endif // UAES_ENABLE_CBC_ENCRYPT || UAES_ENABLE_CBC_DECRYPT
+#endif // (UAES_ENABLE_CBC != 0) || (UAES_ENABLE_CCM != 0)
 
 #if UAES_ENABLE_CCM
 static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
