@@ -39,7 +39,7 @@ static void PrintArray(const uint8_t *array, uint8_t size)
     (void)printf("\n");
 }
 
-#if (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
+#if (UAES_ENABLE_ECB_ENCRYPT != 0) || (UAES_ENABLE_ECB_DECRYPT != 0)
 static uint8_t TestECB(void)
 {
 #if TEST_KEY_SIZE == 256u
@@ -68,7 +68,7 @@ static uint8_t TestECB(void)
     UAES_ECB_Ctx_t ctx;
     UAES_ECB_Init(&ctx, KEY, sizeof(KEY));
     uint8_t result[16];
-#if UAES_ECB_ENCRYPT
+#if UAES_ENABLE_ECB_ENCRYPT
     UAES_ECB_Encrypt(&ctx, IN, result);
     if (memcmp(OUT, result, 16u) != 0) {
         (void)printf("UAES_ECB_Encrypt failed\n");
@@ -78,8 +78,8 @@ static uint8_t TestECB(void)
     } else {
         (void)printf("UAES_ECB_Encrypt passed\n");
     }
-#endif // UAES_ECB_ENCRYPT
-#if UAES_ECB_DECRYPT
+#endif // UAES_ENABLE_ECB_ENCRYPT
+#if UAES_ENABLE_ECB_DECRYPT
     UAES_ECB_Decrypt(&ctx, OUT, result);
     if (memcmp(IN, result, sizeof(IN)) != 0) {
         (void)printf("UAES_ECB_Decrypt failed\n");
@@ -89,12 +89,12 @@ static uint8_t TestECB(void)
     } else {
         (void)printf("UAES_ECB_Decrypt passed\n");
     }
-#endif // UAES_ECB_DECRYPT
+#endif // UAES_ENABLE_ECB_DECRYPT
     return failure;
 }
-#endif // (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
+#endif // (UAES_ENABLE_ECB_ENCRYPT != 0) || (UAES_ENABLE_ECB_DECRYPT != 0)
 
-#if (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+#if (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
 static uint8_t TestCBC(void)
 {
 #if TEST_KEY_SIZE == 256u
@@ -147,7 +147,7 @@ static uint8_t TestCBC(void)
     UAES_CBC_Ctx_t ctx;
     uint8_t failure = 0u;
     uint8_t result[64u];
-#if UAES_CBC_ENCRYPT
+#if UAES_ENABLE_CBC_ENCRYPT
     UAES_CBC_Init(&ctx, KEY, sizeof(KEY), IV);
     (void)memcpy(result, IN, sizeof(IN));
     UAES_CBC_Encrypt(&ctx, result, result, sizeof(result));
@@ -159,8 +159,8 @@ static uint8_t TestCBC(void)
     } else {
         (void)printf("UAES_CBC_Encrypt passed\n");
     }
-#endif // UAES_CBC_ENCRYPT
-#if UAES_CBC_DECRYPT
+#endif // UAES_ENABLE_CBC_ENCRYPT
+#if UAES_ENABLE_CBC_DECRYPT
     UAES_CBC_Init(&ctx, KEY, sizeof(KEY), IV);
     (void)memcpy(result, OUT, sizeof(OUT));
     UAES_CBC_Decrypt(&ctx, result, result, sizeof(result));
@@ -172,12 +172,12 @@ static uint8_t TestCBC(void)
     } else {
         (void)printf("UAES_CBC_Decrypt passed\n");
     }
-#endif // UAES_CBC_DECRYPT
+#endif // UAES_ENABLE_CBC_DECRYPT
     return failure;
 }
-#endif // (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+#endif // (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
 
-#if UAES_CTR
+#if UAES_ENABLE_CTR
 static uint8_t TestCtr(void)
 {
 #if TEST_KEY_SIZE == 256u
@@ -299,9 +299,9 @@ static uint8_t TestCtr(void)
     return failure;
 }
 
-#endif // UAES_CTR
+#endif // UAES_ENABLE_CTR
 
-#if UAES_CCM
+#if UAES_ENABLE_CCM
 
 static uint8_t TestCcm(void)
 {
@@ -709,9 +709,9 @@ static uint8_t TestCcmWithAad(void)
     return failure;
 }
 
-#endif // UAES_CCM
+#endif // UAES_ENABLE_CCM
 
-#if UAES_GCM
+#if UAES_ENABLE_GCM
 
 static uint8_t TestGcm(void)
 {
@@ -953,26 +953,26 @@ static uint8_t TestGcm(void)
     return failure;
 }
 
-#endif // UAES_GCM
+#endif // UAES_ENABLE_GCM
 
 int main(void)
 {
     uint8_t failure = 0u;
     (void)printf("Testing AES-%u\n", TEST_KEY_SIZE);
-#if (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
+#if (UAES_ENABLE_ECB_ENCRYPT != 0) || (UAES_ENABLE_ECB_DECRYPT != 0)
     failure += TestECB();
 #endif
-#if (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+#if (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
     failure += TestCBC();
 #endif
-#if UAES_CTR
+#if UAES_ENABLE_CTR
     failure += TestCtr();
 #endif
-#if UAES_CCM
+#if UAES_ENABLE_CCM
     failure += TestCcm();
     failure += TestCcmWithAad();
 #endif
-#if UAES_GCM
+#if UAES_ENABLE_GCM
     failure += TestGcm();
 #endif
     return (int)failure;

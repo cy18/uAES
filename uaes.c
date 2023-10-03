@@ -29,7 +29,7 @@
 
 #include <string.h>
 
-#if (UAES_ECB_DECRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+#if (UAES_ENABLE_ECB_DECRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
 #define ENABLE_INV_CIPHER 1
 #endif
 
@@ -81,17 +81,17 @@ static uint32_t InvSubWord(uint32_t x);
 static void InvShiftRows(State_t *state);
 static uint32_t Multiply(uint32_t x, uint8_t y);
 #endif
-#if (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+#if (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
 static void XorBlocks(const uint8_t *b1, const uint8_t *b2, uint8_t *output);
-#endif // (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
-#if UAES_CCM
+#endif // (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
+#if UAES_ENABLE_CCM
 static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
                        const uint8_t *input,
                        uint8_t *output,
                        size_t len,
                        bool encrypt);
-#endif // UAES_CCM
-#if UAES_GCM
+#endif // UAES_ENABLE_CCM
+#if UAES_ENABLE_GCM
 static void DataToGhashState(const uint8_t data[16u], uint32_t u32[4u]);
 static void GhashStateToData(const uint32_t u32[4u], uint8_t data[16u]);
 static void Ghash(const UAES_GCM_Ctx_t *ctx,
@@ -104,14 +104,14 @@ void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
                 bool encrypt);
 #endif
 
-#if (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
+#if (UAES_ENABLE_ECB_ENCRYPT != 0) || (UAES_ENABLE_ECB_DECRYPT != 0)
 void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx, const uint8_t *key, size_t key_len)
 {
     InitAesCtx(&ctx->aes_ctx, key, key_len);
 }
 #endif
 
-#if UAES_ECB_ENCRYPT
+#if UAES_ENABLE_ECB_ENCRYPT
 void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
                       const uint8_t *input,
                       uint8_t *output)
@@ -119,7 +119,7 @@ void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
     Cipher(&ctx->aes_ctx, input, output);
 }
 #endif
-#if UAES_ECB_DECRYPT
+#if UAES_ENABLE_ECB_DECRYPT
 void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
                       const uint8_t *input,
                       uint8_t *output)
@@ -128,7 +128,7 @@ void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
 }
 #endif
 
-#if (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+#if (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
 void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
                    const uint8_t *key,
                    size_t key_len,
@@ -138,7 +138,7 @@ void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
     (void)memcpy(ctx->iv, iv, sizeof(ctx->iv));
 }
 
-#if UAES_CBC_ENCRYPT
+#if UAES_ENABLE_CBC_ENCRYPT
 void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
                       const uint8_t *input,
                       uint8_t *output,
@@ -153,9 +153,9 @@ void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
     // Store the iv in the context for later use.
     (void)memcpy(ctx->iv, iv, sizeof(ctx->iv));
 }
-#endif // UAES_CBC_ENCRYPT
+#endif // UAES_ENABLE_CBC_ENCRYPT
 
-#if UAES_CBC_DECRYPT
+#if UAES_ENABLE_CBC_DECRYPT
 void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
                       const uint8_t *input,
                       uint8_t *output,
@@ -169,10 +169,10 @@ void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
         (void)memcpy(ctx->iv, next_iv, 16u);
     }
 }
-#endif // UAES_CBC_DECRYPT
-#endif // (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+#endif // UAES_ENABLE_CBC_DECRYPT
+#endif // (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
 
-#if UAES_CTR
+#if UAES_ENABLE_CTR
 void UAES_CTR_Init(UAES_CTR_Ctx_t *ctx,
                    const uint8_t *key,
                    size_t key_len,
@@ -228,7 +228,7 @@ void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
 
 #endif
 
-#if UAES_CCM
+#if UAES_ENABLE_CCM
 
 void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
                    const uint8_t *key,
@@ -343,9 +343,9 @@ bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
     UAES_CCM_GenerateTag(ctx, expected_tag, tag_len);
     return (memcmp(expected_tag, tag, tag_len) == 0);
 }
-#endif // UAES_CCM
+#endif // UAES_ENABLE_CCM
 
-#if UAES_GCM
+#if UAES_ENABLE_GCM
 
 void UAES_GCM_Init(UAES_GCM_Ctx_t *ctx,
                    const uint8_t *key,
@@ -556,7 +556,7 @@ void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
     }
 }
 
-#endif // UAES_GCM
+#endif // UAES_ENABLE_GCM
 
 // Cipher is the main function that encrypts the PlainText.
 static void Cipher(const UAES_AES_Ctx_t *ctx,
@@ -928,7 +928,7 @@ static uint32_t Multiply(uint32_t x, uint8_t y)
 
 #endif
 
-#if (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+#if (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
 // Xor all bytes in b1 and b2, and store the result in output.
 static void XorBlocks(const uint8_t *b1, const uint8_t *b2, uint8_t *output)
 {
@@ -936,9 +936,9 @@ static void XorBlocks(const uint8_t *b1, const uint8_t *b2, uint8_t *output)
         output[i] = b1[i] ^ b2[i];
     }
 }
-#endif // UAES_CBC_ENCRYPT || UAES_CBC_DECRYPT
+#endif // UAES_ENABLE_CBC_ENCRYPT || UAES_ENABLE_CBC_DECRYPT
 
-#if UAES_CCM
+#if UAES_ENABLE_CCM
 static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
                        const uint8_t *input,
                        uint8_t *output,
@@ -971,9 +971,9 @@ static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
         ctx->byte_pos++;
     }
 }
-#endif // UAES_CCM
+#endif // UAES_ENABLE_CCM
 
-#if UAES_GCM
+#if UAES_ENABLE_GCM
 
 // Convert 16 uint8_t to 4 uint32_t as big endian.
 static void DataToGhashState(const uint8_t data[16u], uint32_t u32[4u])
@@ -998,4 +998,4 @@ static void GhashStateToData(const uint32_t u32[4u], uint8_t data[16u])
     }
 }
 
-#endif // UAES_GCM
+#endif // UAES_ENABLE_GCM

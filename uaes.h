@@ -31,47 +31,51 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#ifndef UAES_DEFAULT_CONFIG
+#define UAES_DEFAULT_CONFIG 1
+#endif
+
 #ifndef UAES_ENABLE_128
-#define UAES_ENABLE_128 1
+#define UAES_ENABLE_128 UAES_DEFAULT_CONFIG
 #endif
 
 #ifndef UAES_ENABLE_192
-#define UAES_ENABLE_192 1
+#define UAES_ENABLE_192 UAES_DEFAULT_CONFIG
 #endif
 
 #ifndef UAES_ENABLE_256
-#define UAES_ENABLE_256 1
+#define UAES_ENABLE_256 UAES_DEFAULT_CONFIG
 #endif
 
-#ifndef UAES_ECB_ENCRYPT
-#define UAES_ECB_ENCRYPT 1
+#ifndef UAES_ENABLE_ECB_ENCRYPT
+#define UAES_ENABLE_ECB_ENCRYPT UAES_DEFAULT_CONFIG
 #endif
 
-#ifndef UAES_ECB_DECRYPT
-#define UAES_ECB_DECRYPT 1
+#ifndef UAES_ENABLE_ECB_DECRYPT
+#define UAES_ENABLE_ECB_DECRYPT UAES_DEFAULT_CONFIG
 #endif
 
-#ifndef UAES_CBC_ENCRYPT
-#define UAES_CBC_ENCRYPT 1
+#ifndef UAES_ENABLE_CBC_ENCRYPT
+#define UAES_ENABLE_CBC_ENCRYPT UAES_DEFAULT_CONFIG
 #endif
 
-#ifndef UAES_CBC_DECRYPT
-#define UAES_CBC_DECRYPT 1
+#ifndef UAES_ENABLE_CBC_DECRYPT
+#define UAES_ENABLE_CBC_DECRYPT UAES_DEFAULT_CONFIG
 #endif
 
-#ifndef UAES_CTR
-#define UAES_CTR 1
+#ifndef UAES_ENABLE_CTR
+#define UAES_ENABLE_CTR UAES_DEFAULT_CONFIG
 #endif
 
-#ifndef UAES_CCM
-#define UAES_CCM 1
+#ifndef UAES_ENABLE_CCM
+#define UAES_ENABLE_CCM UAES_DEFAULT_CONFIG
 #endif
 
-#ifndef UAES_GCM
-#define UAES_GCM 1
+#ifndef UAES_ENABLE_GCM
+#define UAES_ENABLE_GCM UAES_DEFAULT_CONFIG
 #endif
 
-#if (UAES_CCM != 0) || (UAES_GCM != 0)
+#if (UAES_ENABLE_CCM != 0) || (UAES_ENABLE_GCM != 0)
 #include <stdbool.h>
 #endif
 
@@ -90,7 +94,7 @@ typedef struct {
     uint8_t num_words;
 } UAES_AES_Ctx_t;
 
-#if (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
+#if (UAES_ENABLE_ECB_ENCRYPT != 0) || (UAES_ENABLE_ECB_DECRYPT != 0)
 typedef struct {
     UAES_AES_Ctx_t aes_ctx;
 } UAES_ECB_Ctx_t;
@@ -109,7 +113,7 @@ extern void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx,
                           size_t key_len);
 #endif
 
-#if UAES_ECB_ENCRYPT
+#if UAES_ENABLE_ECB_ENCRYPT
 /**
  * @brief Encrypt a 16-byte block of data using ECB mode.
  *
@@ -122,8 +126,8 @@ extern void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx,
 extern void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output);
-#endif // UAES_ECB_ENCRYPT
-#if UAES_ECB_DECRYPT
+#endif // UAES_ENABLE_ECB_ENCRYPT
+#if UAES_ENABLE_ECB_DECRYPT
 /**
  * @brief Decrypt a 16-byte block of data using ECB mode.
  * @param ctx The ECB context to use.
@@ -133,9 +137,9 @@ extern void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
 extern void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output);
-#endif // UAES_ECB_DECRYPT
+#endif // UAES_ENABLE_ECB_DECRYPT
 
-#if (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+#if (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
 typedef struct {
     UAES_AES_Ctx_t aes_ctx;
     uint8_t iv[16u];
@@ -169,7 +173,7 @@ extern void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
                           size_t key_len,
                           const uint8_t *iv);
 
-#if UAES_CBC_ENCRYPT
+#if UAES_ENABLE_CBC_ENCRYPT
 /**
  * @brief Encrypt data using AES CBC mode.
  *
@@ -190,9 +194,9 @@ extern void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output,
                              size_t length);
-#endif // UAES_CBC_ENCRYPT
+#endif // UAES_ENABLE_CBC_ENCRYPT
 
-#if UAES_CBC_DECRYPT
+#if UAES_ENABLE_CBC_DECRYPT
 /**
  * @brief Decrypt data using AES CBC mode.
  * @param ctx The CBC context to use.
@@ -204,10 +208,10 @@ extern void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output,
                              size_t length);
-#endif // UAES_CBC_DECRYPT
-#endif // (UAES_CBC_ENCRYPT != 0) || (UAES_CBC_DECRYPT != 0)
+#endif // UAES_ENABLE_CBC_DECRYPT
+#endif // (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
 
-#if UAES_CTR
+#if UAES_ENABLE_CTR
 typedef struct {
     UAES_AES_Ctx_t aes_ctx;
     uint8_t byte_pos;
@@ -284,7 +288,7 @@ extern void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
 
 #endif
 
-#if UAES_CCM
+#if UAES_ENABLE_CCM
 
 typedef struct {
     UAES_AES_Ctx_t aes_ctx;
@@ -424,9 +428,9 @@ extern bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
                                const uint8_t *tag,
                                uint8_t tag_len);
 
-#endif // UAES_CCM
+#endif // UAES_ENABLE_CCM
 
-#if UAES_GCM
+#if UAES_ENABLE_GCM
 
 typedef struct {
     UAES_AES_Ctx_t aes_ctx;
@@ -544,6 +548,6 @@ extern bool UAES_GCM_VerifyTag(const UAES_GCM_Ctx_t *ctx,
                                const uint8_t *tag,
                                size_t tag_len);
 
-#endif // UAES_GCM
+#endif // UAES_ENABLE_GCM
 
 #endif // UAES_H_
