@@ -141,6 +141,7 @@ extern void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
                              uint8_t *output,
                              size_t len);
 #endif // UAES_ENABLE_ECB_ENCRYPT
+
 #if UAES_ENABLE_ECB_DECRYPT
 /**
  * @brief Decrypt a 16-byte block of data using ECB mode.
@@ -304,11 +305,9 @@ extern void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output,
                              size_t len);
-
-#endif
+#endif // UAES_ENABLE_CTR
 
 #if UAES_ENABLE_CCM
-
 typedef struct {
     UAES_AES_Ctx_t aes_ctx;
     uint8_t byte_pos;
@@ -446,11 +445,9 @@ extern void UAES_CCM_GenerateTag(const UAES_CCM_Ctx_t *ctx,
 extern bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
                                const uint8_t *tag,
                                uint8_t tag_len);
-
 #endif // UAES_ENABLE_CCM
 
 #if UAES_ENABLE_GCM
-
 typedef struct {
     UAES_AES_Ctx_t aes_ctx;
     uint8_t counter[16];
