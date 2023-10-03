@@ -39,7 +39,7 @@ static void PrintArray(const uint8_t *array, uint8_t size)
     (void)printf("\n");
 }
 
-#if (UAES_ENABLE_ECB_ENCRYPT != 0) || (UAES_ENABLE_ECB_DECRYPT != 0)
+#if UAES_ENABLE_ECB
 static uint8_t TestECB(void)
 {
 #if TEST_KEY_SIZE == 256u
@@ -92,9 +92,9 @@ static uint8_t TestECB(void)
 #endif // UAES_ENABLE_ECB_DECRYPT
     return failure;
 }
-#endif // (UAES_ENABLE_ECB_ENCRYPT != 0) || (UAES_ENABLE_ECB_DECRYPT != 0)
+#endif // UAES_ENABLE_ECB
 
-#if (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
+#if UAES_ENABLE_CBC
 static uint8_t TestCBC(void)
 {
 #if TEST_KEY_SIZE == 256u
@@ -175,7 +175,7 @@ static uint8_t TestCBC(void)
 #endif // UAES_ENABLE_CBC_DECRYPT
     return failure;
 }
-#endif // (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
+#endif // UAES_ENABLE_CBC
 
 #if UAES_ENABLE_CTR
 static uint8_t TestCtr(void)
@@ -959,10 +959,10 @@ int main(void)
 {
     uint8_t failure = 0u;
     (void)printf("Testing AES-%u\n", TEST_KEY_SIZE);
-#if (UAES_ENABLE_ECB_ENCRYPT != 0) || (UAES_ENABLE_ECB_DECRYPT != 0)
+#if UAES_ENABLE_ECB
     failure += TestECB();
 #endif
-#if (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
+#if UAES_ENABLE_CBC
     failure += TestCBC();
 #endif
 #if UAES_ENABLE_CTR
