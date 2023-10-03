@@ -148,10 +148,10 @@ void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
 void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
                       const uint8_t *input,
                       uint8_t *output,
-                      size_t length)
+                      size_t len)
 {
     const uint8_t *iv = ctx->iv;
-    for (size_t i = 0u; i < length; i += 16u) {
+    for (size_t i = 0u; i < len; i += 16u) {
         XorBlocks(iv, &input[i], &output[i]);
         Cipher(&ctx->aes_ctx, &output[i], &output[i]);
         iv = &output[i];
@@ -165,10 +165,10 @@ void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
 void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
                       const uint8_t *input,
                       uint8_t *output,
-                      size_t length)
+                      size_t len)
 {
     uint8_t next_iv[16u];
-    for (size_t i = 0u; i < length; i += 16u) {
+    for (size_t i = 0u; i < len; i += 16u) {
         (void)memcpy(next_iv, &input[i], 16u);
         InvCipher(&ctx->aes_ctx, &input[i], &output[i]);
         XorBlocks(ctx->iv, &output[i], &output[i]);
@@ -199,14 +199,14 @@ void UAES_CTR_Init(UAES_CTR_Ctx_t *ctx,
 void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
                       const uint8_t *input,
                       uint8_t *output,
-                      size_t length)
+                      size_t len)
 {
     uint8_t key_stream[16u] = { 0 };
     // Generate the key stream as it is not stored in the context.
     if (ctx->byte_pos < 16u) {
         Cipher(&ctx->aes_ctx, ctx->counter, key_stream);
     }
-    for (size_t i = 0u; i < length; ++i) {
+    for (size_t i = 0u; i < len; ++i) {
         // If all the 16 bytes are used, generate the next block.
         if (ctx->byte_pos >= 16u) {
             ctx->byte_pos = 0u;
@@ -227,9 +227,9 @@ void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
 void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
                       const uint8_t *input,
                       uint8_t *output,
-                      size_t length)
+                      size_t len)
 {
-    UAES_CTR_Encrypt(ctx, input, output, length);
+    UAES_CTR_Encrypt(ctx, input, output, len);
 }
 
 #endif

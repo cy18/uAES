@@ -126,7 +126,7 @@ extern void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx,
  * @param ctx The ECB context to use.
  * @param input The data to encrypt.
  * @param output The buffer to write the encrypted data to.
- * @param length The length of the data in bytes, must be a multiple of 16.
+ * @param len The length of the data in bytes, must be a multiple of 16.
  */
 extern void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
                              const uint8_t *input,
@@ -142,7 +142,7 @@ extern void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
  * @param ctx The ECB context to use.
  * @param input The data to decrypt.
  * @param output The buffer to write the encrypted data to.
- * @param length The length of the data in bytes, must be a multiple of 16.
+ * @param len The length of the data in bytes, must be a multiple of 16.
  */
 extern void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
                              const uint8_t *input,
@@ -199,12 +199,12 @@ extern void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
  * @param ctx The CBC context to use.
  * @param input The data to encrypt.
  * @param output The buffer to write the encrypted data to.
- * @param length The length of the data in bytes, must be a multiple of 16.
+ * @param len The length of the data in bytes, must be a multiple of 16.
  */
 extern void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output,
-                             size_t length);
+                             size_t len);
 #endif // UAES_ENABLE_CBC_ENCRYPT
 
 #if UAES_ENABLE_CBC_DECRYPT
@@ -213,12 +213,12 @@ extern void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
  * @param ctx The CBC context to use.
  * @param input The data to decrypt.
  * @param output The buffer to write the decrypted data to.
- * @param length The length of the data in bytes, must be a multiple of 16.
+ * @param len The length of the data in bytes, must be a multiple of 16.
  */
 extern void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output,
-                             size_t length);
+                             size_t len);
 #endif // UAES_ENABLE_CBC_DECRYPT
 #endif // (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
 
@@ -273,12 +273,12 @@ extern void UAES_CTR_Init(UAES_CTR_Ctx_t *ctx,
  * @param ctx The CTR context to use.
  * @param input The data to encrypt.
  * @param output The buffer to write the encrypted data to.
- * @param length The length of the data in bytes.
+ * @param len The length of the data in bytes.
  */
 extern void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output,
-                             size_t length);
+                             size_t len);
 
 /**
  * @brief Decrypt data using AES CTR mode.
@@ -290,12 +290,12 @@ extern void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
  * @param ctx The CTR context to use.
  * @param input The data to decrypt.
  * @param output The buffer to write the decrypted data to.
- * @param length The length of the data in bytes.
+ * @param len The length of the data in bytes.
  */
 extern void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output,
-                             size_t length);
+                             size_t len);
 
 #endif
 
