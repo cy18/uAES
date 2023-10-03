@@ -44,6 +44,7 @@ if(CPPCHECK)
     endif()
 
     configure_file("${CMAKE_CURRENT_LIST_DIR}/misra.json.in" "misra.json")
+    configure_file("${CMAKE_CURRENT_LIST_DIR}/suppressions_list.txt.in" "suppressions_list.txt")
     list(
         APPEND CPPCHECK
         "--quiet"
@@ -55,14 +56,12 @@ if(CPPCHECK)
         "--inline-suppr"
         "--error-exitcode=-1"
         "--addon=${CMAKE_CURRENT_BINARY_DIR}/misra.json"
+        "--suppressions-list=${CMAKE_CURRENT_BINARY_DIR}/suppressions_list.txt"
         "--project=${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json"
         "--cppcheck-build-dir=${CMAKE_CURRENT_BINARY_DIR}/cppcheck_build_dir"
         "--platform=unspecified"
     )
     message("CPPCheck command: " "${CPPCHECK}")
-
-    # Generate compile_commands.json
-    set_target_properties(${MAIN} PROPERTIES EXPORT_COMPILE_COMMANDS "ON")
 
     # Create cppcheck build dir
     file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/cppcheck_build_dir")

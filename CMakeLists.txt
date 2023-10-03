@@ -34,4 +34,4 @@ add_compile_options(-Os -Wall -Wextra -Wpedantic)
 add_subdirectory(uaes)
 add_subdirectory(tests)
 
-include(cmake/cppcheck.cmake)
+include(cppcheck/cppcheck.cmake)
