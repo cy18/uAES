@@ -3,7 +3,7 @@
 This is a small 32-bit optimized MISRA-C:2012 compliant AES library supporting 128, 192 and 256 bit keys in ECB, CBC, CRT, CCM and GCM modes. The highlights are:
 
 1. ANSI C99 compatible.
-2. MISRA-C:2012 compliant (checked with CPPCheck).
+2. MISRA-C:2012 compliant (checked with Cppcheck).
 3. Support for 128, 192 and 256 bit keys at the same time.
 4. Support for ECB, CBC, CRT, CCM and GCM modes.
 5. Optimized for 32-bit CPUs.

@@ -28,10 +28,10 @@ find_program(CPPCHECK NAMES cppcheck)
 
 if(CPPCHECK)
     set_property(TARGET ${MAIN} PROPERTY EXPORT_COMPILE_COMMANDS "ON")
-    message("CPPCheck found, start configure cppcheck")
+    message("Cppcheck found, start configure Cppcheck")
 
-    # Find misra.py based on location of cppcheck
-    # For example, if cppcheck locates at /usr/bin/cppcheck, then try find misra.py in /usr
+    # Find misra.py based on location of Cppcheck
+    # For example, if Cppcheck locates at /usr/bin/cppcheck, then try find misra.py in /usr
     get_filename_component(CPPCHECK_DIR ${CPPCHECK} DIRECTORY)
     get_filename_component(FIND_ADDON_DIR ${CPPCHECK_DIR} DIRECTORY)
     file(GLOB_RECURSE MISRA_ADDON ${FIND_ADDON_DIR}/**/misra.py
@@ -40,10 +40,13 @@ if(CPPCHECK)
     if(MISRA_ADDON)
         message("Use addon " ${MISRA_ADDON})
     else()
-        message(FATAL_ERROR "CPPCheck addon misra.py not found in " ${FIND_ADDON_PATH})
+        message(FATAL_ERROR "Cppcheck addon misra.py not found in " ${FIND_ADDON_PATH})
     endif()
 
     configure_file("${CMAKE_CURRENT_LIST_DIR}/misra.json.in" "misra.json")
+
+    # Ignore Cppcheck on tests
+    configure_file("${CMAKE_CURRENT_LIST_DIR}/suppressions_list.txt.in" "suppressions_list.txt")
     list(
         APPEND CPPCHECK
         "--quiet"
@@ -55,14 +58,12 @@ if(CPPCHECK)
         "--inline-suppr"
         "--error-exitcode=-1"
         "--addon=${CMAKE_CURRENT_BINARY_DIR}/misra.json"
+        "--suppressions-list=${CMAKE_CURRENT_BINARY_DIR}/suppressions_list.txt"
         "--project=${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json"
         "--cppcheck-build-dir=${CMAKE_CURRENT_BINARY_DIR}/cppcheck_build_dir"
         "--platform=unspecified"
     )
     message("CPPCheck command: " "${CPPCHECK}")
-
-    # Generate compile_commands.json
-    set_target_properties(${MAIN} PROPERTIES EXPORT_COMPILE_COMMANDS "ON")
 
     # Create cppcheck build dir
     file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/cppcheck_build_dir")
@@ -74,5 +75,5 @@ if(CPPCHECK)
         DEPENDS ${MAIN}
     )
 else()
-    message(FATAL_ERROR "CPPCheck not found")
+    message(FATAL_ERROR "Cppcheck not found")
 endif()
