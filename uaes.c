@@ -235,28 +235,69 @@ void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
                    const uint8_t *key,
                    const uint8_t *nonce,
                    uint8_t nonce_len,
-                   uint32_t data_len,
+                   uint64_t aad_len,
+                   uint64_t data_len,
                    uint8_t tag_len)
 {
+    (void)memset(ctx, 0, sizeof(UAES_CCM_Ctx_t));
     (void)memcpy(ctx->key, key, sizeof(ctx->key));
-    uint8_t tag_bits_l = 14u - nonce_len;
+    uint8_t tag_bits_l = 14u - (uint8_t)nonce_len;
     uint8_t tag_bits_m = (uint8_t)((tag_len - 2u) / 2u);
     ctx->cbc_buf[0u] = tag_bits_l | (uint8_t)(tag_bits_m << 3u);
+    if (aad_len > 0u) {
+        ctx->cbc_buf[0u] |= 0x40u;
+    }
     ctx->counter[0u] = tag_bits_l;
     for (uint8_t i = 1u; i <= nonce_len; ++i) {
         ctx->counter[i] = nonce[i - 1u];
         ctx->cbc_buf[i] = nonce[i - 1u];
     }
-    uint32_t tmp = data_len;
+    uint64_t tmp = (uint64_t)data_len;
     for (uint8_t i = 15u; i > nonce_len; --i) {
         ctx->counter[i] = 0u;
         ctx->cbc_buf[i] = (uint8_t)tmp;
         tmp >>= 8u;
     }
     ctx->nonce_len = nonce_len;
+    // Process AAD length field.
+    if (aad_len > 0u) {
+        Cipher(ctx->key, ctx->cbc_buf, ctx->cbc_buf);
+        uint8_t aad_len_bytes;
+        if (aad_len < 0xFF00u) {
+            ctx->aad_byte_pos = 0u;
+            aad_len_bytes = 2u;
+        } else if (aad_len < 0xFFFFFFFFu) {
+            ctx->cbc_buf[0] ^= 0xFFu;
+            ctx->cbc_buf[1] ^= 0xFEu;
+            ctx->aad_byte_pos = 2u;
+            aad_len_bytes = 4u;
+        } else {
+            ctx->cbc_buf[0] ^= 0xFFu;
+            ctx->cbc_buf[1] ^= 0xFFu;
+            ctx->aad_byte_pos = 2u;
+            aad_len_bytes = 8u;
+        }
+        for (uint8_t i = 0u; i < aad_len_bytes; ++i) {
+            uint8_t shift = (uint8_t)(8u * ((aad_len_bytes - i) - 1u));
+            ctx->cbc_buf[ctx->aad_byte_pos + i] ^= (uint8_t)(aad_len >> shift);
+        }
+        ctx->aad_byte_pos += aad_len_bytes;
+    }
     // Counter == 0 is not used for encryption in CCM mode.
     // set ctx->byte_pos = 16u to skip it.
     ctx->byte_pos = 16u;
+}
+
+void UAES_CCM_AddAad(UAES_CCM_Ctx_t *ctx, const uint8_t *aad, size_t len)
+{
+    for (size_t i = 0u; i < len; ++i) {
+        if (ctx->aad_byte_pos >= 16u) {
+            Cipher(ctx->key, ctx->cbc_buf, ctx->cbc_buf);
+            ctx->aad_byte_pos = 0u;
+        }
+        ctx->cbc_buf[ctx->aad_byte_pos] ^= aad[i];
+        ctx->aad_byte_pos++;
+    }
 }
 
 void UAES_CCM_Encrypt(UAES_CCM_Ctx_t *ctx,
@@ -446,7 +487,7 @@ static void Ghash(const UAES_GCM_Ctx_t *ctx,
     // from the highest bit to the lowest bit.
     // Note that this is different  function Multiply() used in InvMixColumns().
     uint32_t buf[4u];
-    memset(buf, 0, sizeof(buf));
+    (void)memset(buf, 0, sizeof(buf));
     for (uint8_t i = 16u; i > 0u; --i) {
         uint8_t tmp = input[i - 1u];
         for (uint8_t j = 0u; j < 8u; ++j) {
