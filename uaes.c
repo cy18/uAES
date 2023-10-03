@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * https://github.com/cy18/uAES
+ * github.com/cy18/uAES
  *
  */
 
@@ -184,7 +184,7 @@ void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
                       uint8_t *output,
                       size_t length)
 {
-    uint8_t key_stream[16u];
+    uint8_t key_stream[16u] = { 0 };
     // Generate the key stream as it is not stored in the context.
     if (ctx->byte_pos < 16u) {
         Cipher(ctx->key, ctx->counter, key_stream);
@@ -229,7 +229,7 @@ void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
     (void)memcpy(ctx->key, key, sizeof(ctx->key));
     uint8_t tag_bits_l = 14u - nonce_len;
     uint8_t tag_bits_m = (uint8_t)((tag_len - 2u) / 2u);
-    ctx->cbc_buf[0u] = tag_bits_l | (tag_bits_m << 3u);
+    ctx->cbc_buf[0u] = tag_bits_l | (uint8_t)(tag_bits_m << 3u);
     ctx->counter[0u] = tag_bits_l;
     for (uint8_t i = 1u; i <= nonce_len; ++i) {
         ctx->counter[i] = nonce[i - 1u];
@@ -263,7 +263,9 @@ void UAES_CCM_Decrypt(UAES_CCM_Ctx_t *ctx,
     CCM_Xcrypt(ctx, input, output, len, false);
 }
 
-void UAES_CCM_GenerateTag(UAES_CCM_Ctx_t *ctx, uint8_t *tag, uint8_t tag_len)
+void UAES_CCM_GenerateTag(const UAES_CCM_Ctx_t *ctx,
+                          uint8_t *tag,
+                          uint8_t tag_len)
 {
     uint8_t ctr_tag[16u];
     uint8_t cbc_tag[16u];
@@ -280,7 +282,7 @@ void UAES_CCM_GenerateTag(UAES_CCM_Ctx_t *ctx, uint8_t *tag, uint8_t tag_len)
     (void)memcpy(tag, cbc_tag, tag_len);
 }
 
-bool UAES_CCM_VerifyTag(UAES_CCM_Ctx_t *ctx,
+bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
                         const uint8_t *tag,
                         uint8_t tag_len)
 {
@@ -644,7 +646,7 @@ static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
                        size_t len,
                        bool encrypt)
 {
-    uint8_t key_stream[16u];
+    uint8_t key_stream[16u] = { 0 };
     if (ctx->byte_pos < 16u) {
         Cipher(ctx->key, ctx->counter, key_stream);
     }
