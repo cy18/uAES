@@ -96,6 +96,18 @@ static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
                        size_t len,
                        bool encrypt);
 #endif // UAES_CCM
+#if UAES_GCM
+static void DataToGhashState(const uint8_t data[16u], uint32_t u32[4u]);
+static void GhashStateToData(const uint32_t u32[4u], uint8_t data[16u]);
+static void Ghash(const UAES_GCM_Ctx_t *ctx,
+                  const uint8_t input[16],
+                  uint8_t output[16]);
+void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
+                size_t len,
+                const uint8_t *input,
+                uint8_t *output,
+                bool encrypt);
+#endif
 
 #if (UAES_ECB_ENCRYPT != 0) || (UAES_ECB_DECRYPT != 0)
 void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx, const uint8_t *key)
@@ -193,7 +205,7 @@ void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
         // If all the 16 bytes are used, generate the next block.
         if (ctx->byte_pos >= 16u) {
             ctx->byte_pos = 0u;
-            // Increment the counter.
+            // Increase the counter.
             for (size_t j = sizeof(ctx->counter); j > 0u; --j) {
                 ctx->counter[j - 1u]++;
                 if (ctx->counter[j - 1u] != 0u) {
@@ -291,6 +303,218 @@ bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
     return (memcmp(expected_tag, tag, tag_len) == 0);
 }
 #endif // UAES_CCM
+
+#if UAES_GCM
+
+void UAES_GCM_Init(UAES_GCM_Ctx_t *ctx,
+                   const uint8_t *key,
+                   const uint8_t *iv,
+                   size_t iv_len)
+{
+    (void)memset(ctx, 0, sizeof(UAES_GCM_Ctx_t));
+    (void)memcpy(ctx->key, key, sizeof(ctx->key));
+
+    // Compute the hash key by encrypting a zero vector with AES cipher
+    uint8_t hash_key[16u];
+    (void)memset(hash_key, 0, sizeof(hash_key));
+    Cipher(ctx->key, hash_key, hash_key);
+    DataToGhashState(hash_key, ctx->hash_key);
+
+    // If iv is 12 bytes, use it directly as the initial counter value.
+    // Otherwise, compute the initial counter value from the IV with GHash.
+    if (iv_len == 12u) {
+        (void)memcpy(ctx->counter, iv, 12u);
+        ctx->counter[15u] = 1u; // start "counting" from 1 (not 0)
+    } else {
+        // Step 1: pad IV with zeros to multiple of 16 bytes and do GHash for
+        // each 16 bytes block.
+        for (size_t i = 0u; i < iv_len; i += 16u) {
+            for (size_t j = 0u; j < 16u; ++j) {
+                if ((i + j) < iv_len) {
+                    ctx->counter[j] ^= iv[i + j];
+                } else {
+                    break;
+                }
+            }
+            Ghash(ctx, ctx->counter, ctx->counter);
+        }
+        // Step 2: the last block consists 64 zeros and the big-endian encoding
+        // of the number of bits in the IV.
+        size_t iv_len_bits = iv_len * 8u;
+        for (size_t i = 0u; i < sizeof(iv_len_bits); ++i) {
+            ctx->counter[15u - i] ^= (uint8_t)(iv_len_bits >> (i * 8u));
+        }
+        Ghash(ctx, ctx->counter, ctx->counter);
+    }
+}
+
+void UAES_GCM_AddAad(UAES_GCM_Ctx_t *ctx, const uint8_t *aad, size_t len)
+{
+    // To simplify the implementation, there would be an redundant Ghash(0) at
+    // the beginning of the GCM. However, since the result of Ghash(0) is still
+    // 0, it does not affect the result.
+    for (size_t i = 0u; i < len; ++i) {
+        if ((ctx->aad_len % 16u) == 0u) {
+            Ghash(ctx, ctx->hash_buf, ctx->hash_buf);
+        }
+        ctx->hash_buf[ctx->aad_len % 16u] ^= aad[i];
+        ctx->aad_len++;
+    }
+}
+
+void UAES_GCM_Encrypt(UAES_GCM_Ctx_t *ctx,
+                      const uint8_t *input,
+                      uint8_t *output,
+                      size_t len)
+{
+    GCM_Xcrypt(ctx, len, input, output, true);
+}
+
+void UAES_GCM_Decrypt(UAES_GCM_Ctx_t *ctx,
+                      const uint8_t *input,
+                      uint8_t *output,
+                      size_t len)
+{
+    GCM_Xcrypt(ctx, len, input, output, false);
+}
+
+void UAES_GCM_GenerateTag(const UAES_GCM_Ctx_t *ctx,
+                          uint8_t *tag,
+                          size_t tag_len)
+{
+    // Use a local hash_buf to avoid error when called multiple times.
+    uint8_t hash_buf[16];
+    uint64_t data_bits = (uint64_t)ctx->data_len * 8u;
+    uint64_t aad_bits = (uint64_t)ctx->aad_len * 8u;
+
+    (void)memcpy(hash_buf, ctx->hash_buf, 16u);
+    // Do Ghash on the last data block.
+    // If len_data > 0, this is the last block of the data.
+    // If len_data == 0, this is the last block of the additional data.
+    // If both len_data and len_add == 0, the input is all zero, thus has no
+    // effect.
+    Ghash(ctx, hash_buf, hash_buf);
+    // The last block of Ghash consists the length of AAD and data in bits.
+    for (size_t i = 0u; i < 8u; ++i) {
+        hash_buf[i] ^= (uint8_t)(aad_bits >> (8u * (7u - i)));
+    }
+    for (size_t i = 8u; i < 16u; ++i) {
+        hash_buf[i] ^= (uint8_t)(data_bits >> (8u * (15u - i)));
+    }
+    Ghash(ctx, hash_buf, hash_buf);
+    // To save RAM, the counter0 is not stored in the context. Instead, it is
+    // recovered by subtracting the counter with data_len/16.
+    uint8_t counter0[16u];
+    size_t remain = (ctx->data_len + 15u) / 16u;
+    (void)memcpy(counter0, ctx->counter, sizeof(counter0));
+    for (uint8_t pos = 15u; pos > 0u; --pos) {
+        if (counter0[pos] >= (remain & 0xFFu)) {
+            counter0[pos] -= (uint8_t)(remain & 0xFFu);
+            remain = remain >> 8u;
+            if (remain == 0u) {
+                break;
+            }
+        } else {
+            counter0[pos] += (uint8_t)(0x100u - (remain & 0xFFu));
+            remain = (remain >> 8u) + 1u;
+        }
+    }
+    // The tag is the encrypted counter0 XORed with the hash_buf.
+    Cipher(ctx->key, counter0, counter0);
+    for (size_t i = 0u; i < tag_len; ++i) {
+        tag[i] = hash_buf[i] ^ counter0[i];
+    }
+}
+
+bool UAES_GCM_VerifyTag(const UAES_GCM_Ctx_t *ctx,
+                        const uint8_t *tag,
+                        size_t tag_len)
+{
+    uint8_t expected_tag[16u];
+    UAES_GCM_GenerateTag(ctx, expected_tag, tag_len);
+    return (memcmp(expected_tag, tag, tag_len) == 0);
+}
+
+static void Ghash(const UAES_GCM_Ctx_t *ctx,
+                  const uint8_t input[16],
+                  uint8_t output[16])
+{
+    // The state is stored in 4 big endianess uint32.
+    // the low bit of buf[3] is the highest bit of the state.
+    // the high bit of buf[0] is the lowest bit of the state.
+    // The algorithm compute H*input by multiplying each bit of input with H
+    // from the highest bit to the lowest bit.
+    // Note that this is different  function Multiply() used in InvMixColumns().
+    uint32_t buf[4u];
+    memset(buf, 0, sizeof(buf));
+    for (uint8_t i = 16u; i > 0u; --i) {
+        uint8_t tmp = input[i - 1u];
+        for (uint8_t j = 0u; j < 8u; ++j) {
+            uint32_t carry = buf[3] & 1u;
+            buf[3] = (buf[3] >> 1u) | (buf[2] << 31u);
+            buf[2] = (buf[2] >> 1u) | (buf[1] << 31u);
+            buf[1] = (buf[1] >> 1u) | (buf[0] << 31u);
+            buf[0] = (buf[0] >> 1u);
+            if (carry != 0u) {
+                // Corresponds to the polynomial x^128 + x^7 + x^2 + x + 1
+                buf[0] ^= 0xe1000000u;
+            }
+            if ((tmp & 1u) != 0u) {
+                buf[0] ^= ctx->hash_key[0u];
+                buf[1] ^= ctx->hash_key[1u];
+                buf[2] ^= ctx->hash_key[2u];
+                buf[3] ^= ctx->hash_key[3u];
+            }
+            tmp >>= 1u;
+        }
+    }
+    GhashStateToData(buf, output);
+}
+
+// Do encryption/decryption.
+void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
+                size_t len,
+                const uint8_t *input,
+                uint8_t *output,
+                bool encrypt)
+{
+    uint8_t key_stream[16u] = { 0 };
+    if ((ctx->data_len % 16u) != 0u) {
+        Cipher(ctx->key, ctx->counter, key_stream);
+    }
+    for (size_t i = 0u; i < len; i++) {
+        if ((ctx->data_len % 16u) == 0u) {
+            // Compute the next block of key stream.
+            for (size_t j = 15u; j > 11u; --j) {
+                ctx->counter[j]++;
+                if (ctx->counter[j] != 0u) {
+                    break;
+                }
+            }
+            Cipher(ctx->key, ctx->counter, key_stream);
+            // Do Ghash for previous block.
+            // If called the first time in this function, it compute the Ghash
+            // for the last block of AAD. If len_aad == 0, then the hash_buf is
+            // all zero, thus has no effect.
+            Ghash(ctx, ctx->hash_buf, ctx->hash_buf);
+        }
+        size_t byte_pos = ctx->data_len % 16u;
+        // The only difference between encryption and decryption is here.
+        // When encrypting, the hash_buf is XORed with the output after
+        // encryption, and when decrypting, the hash_buf is XORed with the
+        // input before decryption.
+        if (encrypt) {
+            output[i] = (uint8_t)(key_stream[byte_pos] ^ input[i]);
+            ctx->hash_buf[byte_pos] ^= output[i];
+        } else {
+            ctx->hash_buf[byte_pos] ^= input[i];
+            output[i] = (uint8_t)(key_stream[byte_pos] ^ input[i]);
+        }
+        ctx->data_len++;
+    }
+}
+
+#endif // UAES_GCM
 
 // Cipher is the main function that encrypts the PlainText.
 static void Cipher(const uint8_t *key,
@@ -673,3 +897,30 @@ static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
     }
 }
 #endif // UAES_CCM
+
+#if UAES_GCM
+
+// Convert 16 uint8_t to 4 uint32_t as big endian.
+static void DataToGhashState(const uint8_t data[16u], uint32_t u32[4u])
+{
+    for (uint8_t i = 0u; i < 4u; ++i) {
+        u32[i] = 0u;
+        for (uint8_t j = 0u; j < 4u; ++j) {
+            uint8_t shift = (uint8_t)((3u - j) * 8u);
+            u32[i] |= ((uint32_t)data[(i * 4u) + j]) << shift;
+        }
+    }
+}
+
+// Reverse of DataToGhashState()
+static void GhashStateToData(const uint32_t u32[4u], uint8_t data[16u])
+{
+    for (uint8_t i = 0u; i < 4u; ++i) {
+        for (uint8_t j = 0u; j < 4u; ++j) {
+            uint8_t shift = (uint8_t)((3u - j) * 8u);
+            data[(i * 4u) + j] = (uint8_t)((u32[i] >> shift) & 0xFFu);
+        }
+    }
+}
+
+#endif // UAES_GCM

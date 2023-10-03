@@ -61,7 +61,11 @@
 #define UAES_CCM 1
 #endif
 
-#if UAES_CCM
+#ifndef UAES_GCM
+#define UAES_GCM 1
+#endif
+
+#if (UAES_CCM != 0) || (UAES_GCM != 0)
 #include <stdbool.h>
 #endif
 
@@ -368,5 +372,123 @@ extern bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
                                uint8_t tag_len);
 
 #endif // UAES_CCM
+
+#if UAES_GCM
+
+typedef struct {
+    uint8_t key[UAES_KEY_SIZE / 8u];
+    uint8_t counter[16];
+    size_t data_len;
+    size_t aad_len;
+    uint32_t hash_key[4u];
+    uint8_t hash_buf[16u];
+} UAES_GCM_Ctx_t;
+
+/**
+ * @brief Initialize the context for AES GCM mode.
+ *
+ * The GCM mode is an authenticated encryption mode. It use CTR mode for
+ * encryption and Galois mode for authentication. Generally, GCM mode is faster
+ * than CCM mode. Further more, it supports parallel processing both encryption
+ * and authentication.
+ *
+ * However, as a library focusing on MCU applications, this implementation
+ * trades off speed for code and RAM size, making the GCM mode slower than CCM
+ * mode. Furthermore, the GCM mode requires more code space than CCM mode. Thus,
+ * the CCM mode is recommended over GCM mode if possible.
+ *
+ * The GCM mode need an initialization vector (IV) at initialization. The IV is
+ * generally considered public information. However, the IV should NEVER be
+ * reused with the same key. There is no requirement on the length of the IV for
+ * GCM mode. However, it is HIGHLY recommended to use a 12-byte (96-bit)  IV.
+ *
+ * @param ctx The context to initialize.
+ * @param key The 128-, 192-, or 256-bit key.
+ * @param iv The initialization vector to use.
+ * @param iv_len The length of the initialization vector in bytes.
+ */
+extern void UAES_GCM_Init(UAES_GCM_Ctx_t *ctx,
+                          const uint8_t *key,
+                          const uint8_t *iv,
+                          size_t iv_len);
+
+/**
+ * @brief Add AAD (Additional Authenticate Data).
+ *
+ * This function MUST be called after UAES_GCM_Init and before UAES_GCM_Encrypt
+ * or UAES_GCM_Decrypt. To make the library smaller, this condition is not
+ * checked. If this condition is not met, the result is undefined.
+ *
+ * This function can be called multiple times to to process long AAD in chunks.
+ *
+ * @param ctx The GCM context to use.
+ * @param aad The AAD to add.
+ * @param len The length of the AAD in bytes.
+ */
+extern void UAES_GCM_AddAad(UAES_GCM_Ctx_t *ctx,
+                            const uint8_t *aad,
+                            size_t len);
+
+/**
+ * @brief Encrypt data using AES GCM mode.
+ *
+ * This function can be called multiple times to process multiple blocks. Note
+ * that only one of UAES_GCM_Encrypt and UAES_GCM_Decrypt can be called for one
+ * context. If both are called, the result is undefined.
+ *
+ * @param ctx The GCM context to use.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param len The length of the data in bytes.
+ */
+extern void UAES_GCM_Encrypt(UAES_GCM_Ctx_t *ctx,
+                             const uint8_t *input,
+                             uint8_t *output,
+                             size_t len);
+
+/**
+ * @brief Decrypt data using AES GCM mode.
+ *
+ * All the rules of UAES_GCM_Encrypt apply here.
+ *
+ * @param ctx The GCM context to use.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the decrypted data to.
+ * @param len The length of the data in bytes.
+ */
+extern void UAES_GCM_Decrypt(UAES_GCM_Ctx_t *ctx,
+                             const uint8_t *input,
+                             uint8_t *output,
+                             size_t len);
+
+/**
+ * @brief Generate the authentication tag.
+ *
+ * This function should only be called when all the data has been processed.
+ *
+ * @param ctx The GCM context to use.
+ * @param tag The buffer to write the tag to.
+ * @param tag_len The length of the tag in bytes.
+ */
+extern void UAES_GCM_GenerateTag(const UAES_GCM_Ctx_t *ctx,
+                                 uint8_t *tag,
+                                 size_t tag_len);
+
+/**
+ * @brief Verify the authentication tag.
+ *
+ * This function calls UAES_GCM_GenerateTag internally, thus it should only be
+ * called when all the data has been processed.
+ *
+ * @param ctx The GCM context to use.
+ * @param tag The tag to verify.
+ * @param tag_len The length of the tag in bytes.
+ * @return true if the tag matches, false otherwise.
+ */
+extern bool UAES_GCM_VerifyTag(const UAES_GCM_Ctx_t *ctx,
+                               const uint8_t *tag,
+                               size_t tag_len);
+
+#endif // UAES_GCM
 
 #endif // UAES_H_
