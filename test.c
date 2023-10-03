@@ -69,7 +69,7 @@ static uint8_t TestECB(void)
     UAES_ECB_Init(&ctx, KEY, sizeof(KEY));
     uint8_t result[16];
 #if UAES_ENABLE_ECB_ENCRYPT
-    UAES_ECB_Encrypt(&ctx, IN, result);
+    UAES_ECB_Encrypt(&ctx, IN, result, sizeof(IN));
     if (memcmp(OUT, result, 16u) != 0) {
         (void)printf("UAES_ECB_Encrypt failed\n");
         PrintArray(OUT, sizeof(OUT));
@@ -80,7 +80,7 @@ static uint8_t TestECB(void)
     }
 #endif // UAES_ENABLE_ECB_ENCRYPT
 #if UAES_ENABLE_ECB_DECRYPT
-    UAES_ECB_Decrypt(&ctx, OUT, result);
+    UAES_ECB_Decrypt(&ctx, OUT, result, sizeof(IN));
     if (memcmp(IN, result, sizeof(IN)) != 0) {
         (void)printf("UAES_ECB_Decrypt failed\n");
         PrintArray(IN, sizeof(IN));
