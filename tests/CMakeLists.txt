@@ -36,11 +36,15 @@ add_executable(test_256 test.c)
 target_compile_definitions(test_256 PRIVATE TEST_KEY_SIZE=256u)
 target_link_libraries(test_256 uaes)
 
+add_executable(test_nist test_nist.c)
+target_link_libraries(test_nist uaes)
+
 # Add tests as custom targets
 add_custom_target(tests
     COMMAND test_128
     COMMAND test_192
     COMMAND test_256
-    DEPENDS test_128 test_192 test_256
+    COMMAND test_nist
+    DEPENDS test_128 test_192 test_256 test_nist
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
