@@ -114,17 +114,23 @@ void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx, const uint8_t *key, size_t key_len)
 #if UAES_ENABLE_ECB_ENCRYPT
 void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
                       const uint8_t *input,
-                      uint8_t *output)
+                      uint8_t *output,
+                      size_t len)
 {
-    Cipher(&ctx->aes_ctx, input, output);
+    for (size_t i = 0u; i < len; i += 16u) {
+        Cipher(&ctx->aes_ctx, &input[i], &output[i]);
+    }
 }
 #endif
 #if UAES_ENABLE_ECB_DECRYPT
 void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
                       const uint8_t *input,
-                      uint8_t *output)
+                      uint8_t *output,
+                      size_t len)
 {
-    InvCipher(&ctx->aes_ctx, input, output);
+    for (size_t i = 0u; i < len; i += 16u) {
+        InvCipher(&ctx->aes_ctx, &input[i], &output[i]);
+    }
 }
 #endif
 

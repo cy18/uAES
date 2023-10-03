@@ -115,28 +115,39 @@ extern void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx,
 
 #if UAES_ENABLE_ECB_ENCRYPT
 /**
- * @brief Encrypt a 16-byte block of data using ECB mode.
+ * @brief Encrypt the data using ECB mode.
  *
- * It is allowed for input and output to point to the same buffer.
+ * The data length must be a multiple of 16 bytes. Otherwise, the result is
+ * undefined.
+ * It is allowed for input and output to point to the same buffer, but the
+ * output must not be before the input in a same buffer. Otherwise the input
+ * will be overwritten before it is read.
  *
  * @param ctx The ECB context to use.
- * @param input The 16-byte block to encrypt.
- * @param output The 16-byte block to write the encrypted data to.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param length The length of the data in bytes, must be a multiple of 16.
  */
 extern void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
                              const uint8_t *input,
-                             uint8_t *output);
+                             uint8_t *output,
+                             size_t len);
 #endif // UAES_ENABLE_ECB_ENCRYPT
 #if UAES_ENABLE_ECB_DECRYPT
 /**
  * @brief Decrypt a 16-byte block of data using ECB mode.
+ *
+ * All the rules of UAES_ECB_Encrypt apply here.
+ *
  * @param ctx The ECB context to use.
- * @param input The 16-byte block to decrypt.
- * @param output The 16-byte block to write the decrypted data to.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param length The length of the data in bytes, must be a multiple of 16.
  */
 extern void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
                              const uint8_t *input,
-                             uint8_t *output);
+                             uint8_t *output,
+                             size_t len);
 #endif // UAES_ENABLE_ECB_DECRYPT
 
 #if (UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
