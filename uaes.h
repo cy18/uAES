@@ -119,6 +119,7 @@ typedef struct {
 extern void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx,
                           const uint8_t *key,
                           size_t key_len);
+
 #endif // UAES_ENABLE_ECB
 
 #if UAES_ENABLE_ECB_ENCRYPT
@@ -140,6 +141,24 @@ extern void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output,
                              size_t len);
+
+/**
+ * @brief Simple function for encrypting data using ECB mode.
+ *
+ * All the rules of UAES_ECB_Init and UAES_ECB_Encrypt apply here.
+ *
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param data_len The length of the data in bytes, must be a multiple of 16.
+ */
+extern void UAES_ECB_SimpleEncrypt(const uint8_t *key,
+                                   size_t key_len,
+                                   const uint8_t *input,
+                                   uint8_t *output,
+                                   size_t data_len);
+
 #endif // UAES_ENABLE_ECB_ENCRYPT
 
 #if UAES_ENABLE_ECB_DECRYPT
@@ -157,6 +176,24 @@ extern void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output,
                              size_t len);
+
+/**
+ * @brief Simple function for decrypting data using ECB mode.
+ *
+ * All the rules of UAES_ECB_Init and UAES_ECB_Decrypt apply here.
+ *
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param data_len The length of the data in bytes, must be a multiple of 16.
+ */
+extern void UAES_ECB_SimpleDecrypt(const uint8_t *key,
+                                   size_t key_len,
+                                   const uint8_t *input,
+                                   uint8_t *output,
+                                   size_t data_len);
+
 #endif // UAES_ENABLE_ECB_DECRYPT
 
 #if UAES_ENABLE_CBC
@@ -192,6 +229,7 @@ extern void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
                           const uint8_t *key,
                           size_t key_len,
                           const uint8_t *iv);
+
 #endif // UAES_ENABLE_CBC
 
 #if UAES_ENABLE_CBC_ENCRYPT
@@ -215,6 +253,26 @@ extern void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output,
                              size_t len);
+
+/**
+ * @brief The Simple function for encrypting data using CBC mode.
+ *
+ * All the rules of UAES_CBC_Init and UAES_CBC_Encrypt apply here.
+ *
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param iv The 16-byte initialization vector.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param data_len The length of the data in bytes, must be a multiple of 16.
+ */
+extern void UAES_CBC_SimpleEncrypt(const uint8_t *key,
+                                   size_t key_len,
+                                   const uint8_t *iv,
+                                   const uint8_t *input,
+                                   uint8_t *output,
+                                   size_t data_len);
+
 #endif // UAES_ENABLE_CBC_ENCRYPT
 
 #if UAES_ENABLE_CBC_DECRYPT
@@ -229,6 +287,26 @@ extern void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output,
                              size_t len);
+
+/**
+ * @brief Simple function for decrypting data using CBC mode.
+ *
+ * All the rules of UAES_CBC_Init and UAES_CBC_Decrypt apply here.
+ *
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param iv The 16-byte initialization vector.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the decrypted data to.
+ * @param data_len The length of the data in bytes, must be a multiple of 16.
+ */
+extern void UAES_CBC_SimpleDecrypt(const uint8_t *key,
+                                   size_t key_len,
+                                   const uint8_t *iv,
+                                   const uint8_t *input,
+                                   uint8_t *output,
+                                   size_t data_len);
+
 #endif // UAES_ENABLE_CBC_DECRYPT
 
 #if UAES_ENABLE_CTR
@@ -290,6 +368,27 @@ extern void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
                              size_t len);
 
 /**
+ * @brief Simple function for encrypting data using CTR mode.
+ *
+ * All the rules of UAES_CTR_Init and UAES_CTR_Encrypt apply here.
+ *
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param nonce The nonce to use. A same nonce/key pair must not be reused.
+ * @param nonce_len The length of the nonce in bytes. It must be between 0~15.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param data_len The length of the data in bytes.
+ */
+extern void UAES_CTR_SimpleEncrypt(const uint8_t *key,
+                                   size_t key_len,
+                                   const uint8_t *nonce,
+                                   size_t nonce_len,
+                                   const uint8_t *input,
+                                   uint8_t *output,
+                                   size_t data_len);
+
+/**
  * @brief Decrypt data using AES CTR mode.
  *
  * Since the encryption and decryption are the same in CTR mode, this function
@@ -305,6 +404,28 @@ extern void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
                              const uint8_t *input,
                              uint8_t *output,
                              size_t len);
+
+/**
+ * @brief Simple function for decrypting data using CTR mode.
+ *
+ * All the rules of UAES_CTR_Init and UAES_CTR_Decrypt apply here.
+ *
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param nonce The nonce to use. A same nonce/key pair must not be reused.
+ * @param nonce_len The length of the nonce in bytes. It must be between 0~15.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the decrypted data to.
+ * @param data_len The length of the data in bytes.
+ */
+extern void UAES_CTR_SimpleDecrypt(const uint8_t *key,
+                                   size_t key_len,
+                                   const uint8_t *nonce,
+                                   size_t nonce_len,
+                                   const uint8_t *input,
+                                   uint8_t *output,
+                                   size_t data_len);
+
 #endif // UAES_ENABLE_CTR
 
 #if UAES_ENABLE_CCM
@@ -445,6 +566,68 @@ extern void UAES_CCM_GenerateTag(const UAES_CCM_Ctx_t *ctx,
 extern bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
                                const uint8_t *tag,
                                uint8_t tag_len);
+
+/**
+ * @brief Simple function for encrypting and generating tag using CCM mode.
+ *
+ * All the rules of UAES_CCM_Init, UAES_CCM_Encrypt and UAES_CCM_GenerateTag
+ * apply here.
+ *
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param nonce The nonce to use. A same nonce/key pair must not be reused.
+ * @param nonce_len The length of the nonce in bytes. It must be between 7~13.
+ * @param aad The AAD to add.
+ * @param aad_len The length of the AAD in bytes.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param data_len The length of the data in bytes.
+ * @param tag The buffer to write the tag to.
+ * @param tag_len The length of the tag in bytes, must be the same as the
+ */
+extern void UAES_CCM_SimpleEncrypt(const uint8_t *key,
+                                   size_t key_len,
+                                   const uint8_t *nonce,
+                                   uint8_t nonce_len,
+                                   const uint8_t *aad,
+                                   size_t aad_len,
+                                   const uint8_t *input,
+                                   uint8_t *output,
+                                   size_t data_len,
+                                   uint8_t *tag,
+                                   uint8_t tag_len);
+
+/**
+ * @brief Simple function for decrypting and verifying tag using CCM mode.
+ *
+ * All the rules of UAES_CCM_Init, UAES_CCM_Decrypt and UAES_CCM_VerifyTag apply
+ * here.
+ *
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param nonce The nonce to use. A same nonce/key pair must not be reused.
+ * @param nonce_len The length of the nonce in bytes. It must be between 7~13.
+ * @param aad The AAD to add.
+ * @param aad_len The length of the AAD in bytes.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the decrypted data to.
+ * @param data_len The length of the data in bytes.
+ * @param tag The tag to verify.
+ * @param tag_len The length of the tag in bytes, must be the same as the
+ * @return true if the tag matches, false otherwise.
+ */
+extern bool UAES_CCM_SimpleDecrypt(const uint8_t *key,
+                                   size_t key_len,
+                                   const uint8_t *nonce,
+                                   uint8_t nonce_len,
+                                   const uint8_t *aad,
+                                   size_t aad_len,
+                                   const uint8_t *input,
+                                   uint8_t *output,
+                                   size_t data_len,
+                                   const uint8_t *tag,
+                                   uint8_t tag_len);
+
 #endif // UAES_ENABLE_CCM
 
 #if UAES_ENABLE_GCM
@@ -563,6 +746,62 @@ extern void UAES_GCM_GenerateTag(const UAES_GCM_Ctx_t *ctx,
 extern bool UAES_GCM_VerifyTag(const UAES_GCM_Ctx_t *ctx,
                                const uint8_t *tag,
                                size_t tag_len);
+
+/**
+ * @brief Simple function for encrypting and generating tag using GCM mode.
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param iv The initialization vector to use.
+ * @param iv_len The length of the initialization vector in bytes.
+ * @param aad The AAD to add.
+ * @param aad_len The length of the AAD in bytes.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param len The length of the data in bytes.
+ * @param tag The buffer to write the tag to.
+ * @param tag_len The length of the tag in bytes.
+ */
+extern void UAES_GCM_SimpleEncrypt(const uint8_t *key,
+                                   size_t key_len,
+                                   const uint8_t *iv,
+                                   size_t iv_len,
+                                   const uint8_t *aad,
+                                   size_t aad_len,
+                                   const uint8_t *input,
+                                   uint8_t *output,
+                                   size_t data_len,
+                                   uint8_t *tag,
+                                   size_t tag_len);
+
+/**
+ * @brief Simple function for decrypting and verifying tag using GCM mode.
+ *
+ * All the rules of UAES_GCM_SimpleEncrypt apply here.
+ *
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param iv The initialization vector to use.
+ * @param iv_len The length of the initialization vector in bytes.
+ * @param aad The AAD to use.
+ * @param aad_len The length of the AAD in bytes.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the decrypted data to.
+ * @param data_len The length of the data in bytes.
+ * @param tag The tag to verify.
+ * @param tag_len The length of the tag in bytes.
+ * @return true if the tag matches, false otherwise.
+ */
+extern bool UAES_GCM_SimpleDecrypt(const uint8_t *key,
+                                   size_t key_len,
+                                   const uint8_t *iv,
+                                   size_t iv_len,
+                                   const uint8_t *aad,
+                                   size_t aad_len,
+                                   const uint8_t *input,
+                                   uint8_t *output,
+                                   size_t data_len,
+                                   const uint8_t *tag,
+                                   size_t tag_len);
 
 #endif // UAES_ENABLE_GCM
 

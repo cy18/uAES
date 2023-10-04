@@ -125,6 +125,18 @@ void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
         Cipher(&ctx->aes_ctx, &input[i], &output[i]);
     }
 }
+
+void UAES_ECB_SimpleEncrypt(const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len)
+{
+    UAES_ECB_Ctx_t ctx;
+    UAES_ECB_Init(&ctx, key, key_len);
+    UAES_ECB_Encrypt(&ctx, input, output, data_len);
+}
+
 #endif // UAES_ENABLE_ECB_ENCRYPT
 
 #if UAES_ENABLE_ECB_DECRYPT
@@ -137,6 +149,18 @@ void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
         InvCipher(&ctx->aes_ctx, &input[i], &output[i]);
     }
 }
+
+void UAES_ECB_SimpleDecrypt(const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len)
+{
+    UAES_ECB_Ctx_t ctx;
+    UAES_ECB_Init(&ctx, key, key_len);
+    UAES_ECB_Decrypt(&ctx, input, output, data_len);
+}
+
 #endif // UAES_ENABLE_ECB_DECRYPT
 
 #if UAES_ENABLE_CBC
@@ -165,6 +189,19 @@ void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
     // Store the iv in the context for later use.
     (void)memcpy(ctx->iv, iv, sizeof(ctx->iv));
 }
+
+void UAES_CBC_SimpleEncrypt(const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *iv,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len)
+{
+    UAES_CBC_Ctx_t ctx;
+    UAES_CBC_Init(&ctx, key, key_len, iv);
+    UAES_CBC_Encrypt(&ctx, input, output, data_len);
+}
+
 #endif // UAES_ENABLE_CBC_ENCRYPT
 
 #if UAES_ENABLE_CBC_DECRYPT
@@ -181,6 +218,19 @@ void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
         (void)memcpy(ctx->iv, next_iv, 16u);
     }
 }
+
+void UAES_CBC_SimpleDecrypt(const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *iv,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len)
+{
+    UAES_CBC_Ctx_t ctx;
+    UAES_CBC_Init(&ctx, key, key_len, iv);
+    UAES_CBC_Decrypt(&ctx, input, output, data_len);
+}
+
 #endif // UAES_ENABLE_CBC_DECRYPT
 
 #if UAES_ENABLE_CTR
@@ -229,6 +279,19 @@ void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
     }
 }
 
+void UAES_CTR_SimpleEncrypt(const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *nonce,
+                            size_t nonce_len,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len)
+{
+    UAES_CTR_Ctx_t ctx;
+    UAES_CTR_Init(&ctx, key, key_len, nonce, nonce_len);
+    UAES_CTR_Encrypt(&ctx, input, output, data_len);
+}
+
 void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
                       const uint8_t *input,
                       uint8_t *output,
@@ -236,6 +299,24 @@ void UAES_CTR_Decrypt(UAES_CTR_Ctx_t *ctx,
 {
     UAES_CTR_Encrypt(ctx, input, output, len);
 }
+
+void UAES_CTR_SimpleDecrypt(const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *nonce,
+                            size_t nonce_len,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len)
+{
+    UAES_CTR_SimpleEncrypt(key,
+                           key_len,
+                           nonce,
+                           nonce_len,
+                           input,
+                           output,
+                           data_len);
+}
+
 #endif
 
 #if UAES_ENABLE_CCM
@@ -352,6 +433,59 @@ bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
     UAES_CCM_GenerateTag(ctx, expected_tag, tag_len);
     return (memcmp(expected_tag, tag, tag_len) == 0);
 }
+
+void UAES_CCM_SimpleEncrypt(const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *nonce,
+                            uint8_t nonce_len,
+                            const uint8_t *aad,
+                            size_t aad_len,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len,
+                            uint8_t *tag,
+                            uint8_t tag_len)
+{
+    UAES_CCM_Ctx_t ctx;
+    UAES_CCM_Init(&ctx,
+                  key,
+                  key_len,
+                  nonce,
+                  nonce_len,
+                  aad_len,
+                  data_len,
+                  tag_len);
+    UAES_CCM_AddAad(&ctx, aad, aad_len);
+    UAES_CCM_Encrypt(&ctx, input, output, data_len);
+    UAES_CCM_GenerateTag(&ctx, tag, tag_len);
+}
+
+bool UAES_CCM_SimpleDecrypt(const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *nonce,
+                            uint8_t nonce_len,
+                            const uint8_t *aad,
+                            size_t aad_len,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len,
+                            const uint8_t *tag,
+                            uint8_t tag_len)
+{
+    UAES_CCM_Ctx_t ctx;
+    UAES_CCM_Init(&ctx,
+                  key,
+                  key_len,
+                  nonce,
+                  nonce_len,
+                  aad_len,
+                  data_len,
+                  tag_len);
+    UAES_CCM_AddAad(&ctx, aad, aad_len);
+    UAES_CCM_Decrypt(&ctx, input, output, data_len);
+    return UAES_CCM_VerifyTag(&ctx, tag, tag_len);
+}
+
 #endif // UAES_ENABLE_CCM
 
 #if UAES_ENABLE_GCM
@@ -483,6 +617,44 @@ bool UAES_GCM_VerifyTag(const UAES_GCM_Ctx_t *ctx,
     uint8_t expected_tag[16u];
     UAES_GCM_GenerateTag(ctx, expected_tag, tag_len);
     return (memcmp(expected_tag, tag, tag_len) == 0);
+}
+
+void UAES_GCM_SimpleEncrypt(const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *iv,
+                            size_t iv_len,
+                            const uint8_t *aad,
+                            size_t aad_len,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len,
+                            uint8_t *tag,
+                            size_t tag_len)
+{
+    UAES_GCM_Ctx_t ctx;
+    UAES_GCM_Init(&ctx, key, key_len, iv, iv_len);
+    UAES_GCM_AddAad(&ctx, aad, aad_len);
+    UAES_GCM_Encrypt(&ctx, input, output, data_len);
+    UAES_GCM_GenerateTag(&ctx, tag, tag_len);
+}
+
+bool UAES_GCM_SimpleDecrypt(const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *iv,
+                            size_t iv_len,
+                            const uint8_t *aad,
+                            size_t aad_len,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len,
+                            const uint8_t *tag,
+                            size_t tag_len)
+{
+    UAES_GCM_Ctx_t ctx;
+    UAES_GCM_Init(&ctx, key, key_len, iv, iv_len);
+    UAES_GCM_AddAad(&ctx, aad, aad_len);
+    UAES_GCM_Decrypt(&ctx, input, output, data_len);
+    return UAES_GCM_VerifyTag(&ctx, tag, tag_len);
 }
 
 static void Ghash(const UAES_GCM_Ctx_t *ctx,
