@@ -481,8 +481,8 @@ extern void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
                           size_t key_len,
                           const uint8_t *nonce,
                           uint8_t nonce_len,
-                          uint64_t aad_len,
-                          uint64_t data_len,
+                          size_t aad_len,
+                          size_t data_len,
                           uint8_t tag_len);
 
 /**

@@ -325,8 +325,8 @@ void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
                    size_t key_len,
                    const uint8_t *nonce,
                    uint8_t nonce_len,
-                   uint64_t aad_len,
-                   uint64_t data_len,
+                   size_t aad_len,
+                   size_t data_len,
                    uint8_t tag_len)
 {
     (void)memset(ctx, 0, sizeof(UAES_CCM_Ctx_t));
@@ -342,7 +342,7 @@ void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
         ctx->counter[i] = nonce[i - 1u];
         ctx->cbc_buf[i] = nonce[i - 1u];
     }
-    uint64_t tmp = (uint64_t)data_len;
+    size_t tmp = data_len;
     for (uint8_t i = 15u; i > nonce_len; --i) {
         ctx->counter[i] = 0u;
         ctx->cbc_buf[i] = (uint8_t)tmp;
@@ -568,8 +568,8 @@ void UAES_GCM_GenerateTag(const UAES_GCM_Ctx_t *ctx,
 {
     // Use a local hash_buf to avoid error when called multiple times.
     uint8_t hash_buf[16];
-    uint64_t data_bits = (uint64_t)ctx->data_len * 8u;
-    uint64_t aad_bits = (uint64_t)ctx->aad_len * 8u;
+    size_t data_bits = ctx->data_len * 8u;
+    size_t aad_bits = ctx->aad_len * 8u;
 
     (void)memcpy(hash_buf, ctx->hash_buf, 16u);
     // Do Ghash on the last data block.
