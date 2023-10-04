@@ -78,6 +78,15 @@ static uint8_t TestECB(void)
     } else {
         (void)printf("UAES_ECB_Encrypt passed\n");
     }
+    UAES_ECB_SimpleEncrypt(KEY, sizeof(KEY), IN, result, sizeof(IN));
+    if (memcmp(OUT, result, 16u) != 0) {
+        (void)printf("UAES_ECB_SimpleEncrypt failed\n");
+        PrintArray(OUT, sizeof(OUT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else {
+        (void)printf("UAES_ECB_SimpleEncrypt passed\n");
+    }
 #endif // UAES_ENABLE_ECB_ENCRYPT
 #if UAES_ENABLE_ECB_DECRYPT
     UAES_ECB_Decrypt(&ctx, OUT, result, sizeof(IN));
@@ -88,6 +97,15 @@ static uint8_t TestECB(void)
         failure++;
     } else {
         (void)printf("UAES_ECB_Decrypt passed\n");
+    }
+    UAES_ECB_SimpleDecrypt(KEY, sizeof(KEY), OUT, result, sizeof(IN));
+    if (memcmp(IN, result, sizeof(IN)) != 0) {
+        (void)printf("UAES_ECB_SimpleDecrypt failed\n");
+        PrintArray(IN, sizeof(IN));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else {
+        (void)printf("UAES_ECB_SimpleDecrypt passed\n");
     }
 #endif // UAES_ENABLE_ECB_DECRYPT
     return failure;
@@ -159,6 +177,15 @@ static uint8_t TestCBC(void)
     } else {
         (void)printf("UAES_CBC_Encrypt passed\n");
     }
+    UAES_CBC_SimpleEncrypt(KEY, sizeof(KEY), IV, IN, result, sizeof(IN));
+    if (memcmp(OUT, result, sizeof(OUT)) != 0) {
+        (void)printf("UAES_CBC_SimpleEncrypt failed\n");
+        PrintArray(OUT, sizeof(OUT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else {
+        (void)printf("UAES_CBC_SimpleEncrypt passed\n");
+    }
 #endif // UAES_ENABLE_CBC_ENCRYPT
 #if UAES_ENABLE_CBC_DECRYPT
     UAES_CBC_Init(&ctx, KEY, sizeof(KEY), IV);
@@ -171,6 +198,15 @@ static uint8_t TestCBC(void)
         failure++;
     } else {
         (void)printf("UAES_CBC_Decrypt passed\n");
+    }
+    UAES_CBC_SimpleDecrypt(KEY, sizeof(KEY), IV, OUT, result, sizeof(IN));
+    if (memcmp(IN, result, sizeof(IN)) != 0) {
+        (void)printf("UAES_CBC_SimpleDecrypt failed\n");
+        PrintArray(IN, sizeof(IN));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else {
+        (void)printf("UAES_CBC_SimpleDecrypt passed\n");
     }
 #endif // UAES_ENABLE_CBC_DECRYPT
     return failure;
@@ -241,6 +277,21 @@ static uint8_t TestCtr(void)
     } else {
         (void)printf("UAES_CTR_Encrypt case 1 passed\n");
     }
+    UAES_CTR_SimpleEncrypt(KEY,
+                           sizeof(KEY),
+                           NONCE,
+                           sizeof(NONCE),
+                           IN,
+                           result,
+                           sizeof(IN));
+    if (memcmp(OUT, result, sizeof(OUT)) != 0) {
+        (void)printf("UAES_CTR_SimpleEncrypt failed\n");
+        PrintArray(OUT, sizeof(OUT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else {
+        (void)printf("UAES_CTR_SimpleEncrypt case 1 passed\n");
+    }
     // Encrypt the array by random chunks
     UAES_CTR_Init(&ctx, KEY, sizeof(KEY), NONCE, sizeof(NONCE));
     size_t pos = 0u;
@@ -273,6 +324,21 @@ static uint8_t TestCtr(void)
         failure++;
     } else {
         (void)printf("UAES_CTR_Decrypt case 1 passed\n");
+    }
+    UAES_CTR_SimpleDecrypt(KEY,
+                           sizeof(KEY),
+                           NONCE,
+                           sizeof(NONCE),
+                           OUT,
+                           result,
+                           sizeof(OUT));
+    if (memcmp(IN, result, sizeof(IN)) != 0) {
+        (void)printf("UAES_CTR_SimpleDecrypt failed\n");
+        PrintArray(IN, sizeof(IN));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else {
+        (void)printf("UAES_CTR_SimpleDecrypt case 1 passed\n");
     }
     // Decrypt the array by random chunks
     UAES_CTR_Init(&ctx, KEY, sizeof(KEY), NONCE, sizeof(NONCE));
@@ -386,6 +452,30 @@ static uint8_t TestCcm(void)
     } else {
         (void)printf("UAES_CCM_Encrypt case 1 passed\n");
     }
+    UAES_CCM_SimpleEncrypt(KEY,
+                           sizeof(KEY),
+                           NONCE,
+                           sizeof(NONCE),
+                           NULL,
+                           0u,
+                           IN,
+                           result,
+                           sizeof(IN),
+                           tag_out,
+                           sizeof(TAG));
+    if (memcmp(OUT, result, sizeof(OUT)) != 0) {
+        (void)printf("UAES_CCM_SimpleEncrypt result error\n");
+        PrintArray(OUT, sizeof(OUT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (memcmp(TAG, tag_out, sizeof(TAG)) != 0) {
+        (void)printf("UAES_CCM_SimpleEncrypt tag error\n");
+        PrintArray(TAG, sizeof(TAG));
+        PrintArray(tag_out, sizeof(tag_out));
+        failure++;
+    } else {
+        (void)printf("UAES_CCM_SimpleEncrypt case 1 passed\n");
+    }
     // Test encryption by random chunks
     UAES_CCM_Init(&ctx,
                   KEY,
@@ -445,6 +535,26 @@ static uint8_t TestCcm(void)
         failure++;
     } else {
         (void)printf("UAES_CCM_Decrypt case 1 passed\n");
+    }
+    if (!UAES_CCM_SimpleDecrypt(KEY,
+                                sizeof(KEY),
+                                NONCE,
+                                sizeof(NONCE),
+                                NULL,
+                                0u,
+                                OUT,
+                                result,
+                                sizeof(OUT),
+                                TAG,
+                                sizeof(TAG))) {
+        (void)printf("UAES_CCM_SimpleDecrypt failed at verifying\n");
+    } else if (memcmp(IN, result, sizeof(IN)) != 0) {
+        (void)printf("UAES_CCM_SimpleDecrypt result error\n");
+        PrintArray(IN, sizeof(IN));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else {
+        (void)printf("UAES_CCM_SimpleDecrypt case 1 passed\n");
     }
     // Test decryption by random chunks
     UAES_CCM_Init(&ctx,
@@ -588,6 +698,30 @@ static uint8_t TestCcmWithAad(void)
     } else {
         (void)printf("UAES_CCM_Encrypt case 3 passed\n");
     }
+    UAES_CCM_SimpleEncrypt(KEY,
+                           sizeof(KEY),
+                           NONCE,
+                           sizeof(NONCE),
+                           AAD,
+                           sizeof(AAD),
+                           IN,
+                           result,
+                           sizeof(IN),
+                           tag_out,
+                           sizeof(TAG));
+    if (memcmp(OUT, result, sizeof(OUT)) != 0) {
+        (void)printf("UAES_CCM_SimpleEncrypt result error\n");
+        PrintArray(OUT, sizeof(OUT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (memcmp(TAG, tag_out, sizeof(TAG)) != 0) {
+        (void)printf("UAES_CCM_SimpleEncrypt tag error\n");
+        PrintArray(TAG, sizeof(TAG));
+        PrintArray(tag_out, sizeof(tag_out));
+        failure++;
+    } else {
+        (void)printf("UAES_CCM_SimpleEncrypt case 2 passed\n");
+    }
     // Test encryption by random chunks
     UAES_CCM_Init(&ctx,
                   KEY,
@@ -660,6 +794,26 @@ static uint8_t TestCcmWithAad(void)
         failure++;
     } else {
         (void)printf("UAES_CCM_Decrypt case 3 passed\n");
+    }
+    if (!UAES_CCM_SimpleDecrypt(KEY,
+                                sizeof(KEY),
+                                NONCE,
+                                sizeof(NONCE),
+                                AAD,
+                                sizeof(AAD),
+                                OUT,
+                                result,
+                                sizeof(OUT),
+                                TAG,
+                                sizeof(TAG))) {
+        (void)printf("UAES_CCM_SimpleDecrypt failed at verifying\n");
+    } else if (memcmp(IN, result, sizeof(IN)) != 0) {
+        (void)printf("UAES_CCM_SimpleDecrypt result error\n");
+        PrintArray(IN, sizeof(IN));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else {
+        (void)printf("UAES_CCM_SimpleDecrypt case 2 passed\n");
     }
     // Test decryption by random chunks
     UAES_CCM_Init(&ctx,
@@ -836,6 +990,30 @@ static uint8_t TestGcm(void)
     } else {
         (void)printf("UAES_GCM_Encrypt case 1 passed\n");
     }
+    UAES_GCM_SimpleEncrypt(KEY,
+                           sizeof(KEY),
+                           IV,
+                           sizeof(IV),
+                           AAD,
+                           sizeof(AAD),
+                           PT,
+                           result,
+                           sizeof(PT),
+                           tag_out,
+                           sizeof(tag_out));
+    if (memcmp(CT, result, sizeof(CT)) != 0) {
+        (void)printf("UAES_GCM_SimpleEncrypt result error\n");
+        PrintArray(CT, sizeof(CT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (memcmp(TAG, tag_out, sizeof(TAG)) != 0) {
+        (void)printf("UAES_GCM_SimpleEncrypt tag error\n");
+        PrintArray(TAG, sizeof(TAG));
+        PrintArray(tag_out, sizeof(tag_out));
+        failure++;
+    } else {
+        (void)printf("UAES_GCM_SimpleEncrypt case 1 passed\n");
+    }
     // Test encryption by random chunks
     UAES_GCM_Init(&ctx, KEY, sizeof(KEY), IV, sizeof(IV));
     UAES_GCM_AddAad(&ctx, AAD, sizeof(AAD));
@@ -883,7 +1061,30 @@ static uint8_t TestGcm(void)
     } else {
         (void)printf("UAES_GCM_Encrypt case 3 passed\n");
     }
-
+    UAES_GCM_SimpleEncrypt(KEY,
+                           sizeof(KEY),
+                           IV2,
+                           sizeof(IV2),
+                           AAD,
+                           sizeof(AAD),
+                           PT,
+                           result,
+                           sizeof(PT),
+                           tag_out,
+                           sizeof(tag_out));
+    if (memcmp(CT2, result, sizeof(CT2)) != 0) {
+        (void)printf("UAES_GCM_SimpleEncrypt result error\n");
+        PrintArray(CT2, sizeof(CT2));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else if (memcmp(TAG2, tag_out, sizeof(TAG2)) != 0) {
+        (void)printf("UAES_GCM_SimpleEncrypt tag error\n");
+        PrintArray(TAG2, sizeof(TAG2));
+        PrintArray(tag_out, sizeof(tag_out));
+        failure++;
+    } else {
+        (void)printf("UAES_GCM_SimpleEncrypt case 2 passed\n");
+    }
     // Test decryption at once
     UAES_GCM_Init(&ctx, KEY, sizeof(KEY), IV, sizeof(IV));
     UAES_GCM_AddAad(&ctx, AAD, sizeof(AAD));
@@ -902,6 +1103,26 @@ static uint8_t TestGcm(void)
         failure++;
     } else {
         (void)printf("UAES_GCM_Decrypt case 1 passed\n");
+    }
+    if (!UAES_GCM_SimpleDecrypt(KEY,
+                                sizeof(KEY),
+                                IV,
+                                sizeof(IV),
+                                AAD,
+                                sizeof(AAD),
+                                CT,
+                                result,
+                                sizeof(CT),
+                                TAG,
+                                sizeof(TAG))) {
+        (void)printf("UAES_GCM_SimpleDecrypt failed at verifying\n");
+    } else if (memcmp(PT, result, sizeof(PT)) != 0) {
+        (void)printf("UAES_GCM_SimpleDecrypt result error\n");
+        PrintArray(PT, sizeof(PT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else {
+        (void)printf("UAES_GCM_SimpleDecrypt case 1 passed\n");
     }
     // Test decryption by random chunks
     UAES_GCM_Init(&ctx, KEY, sizeof(KEY), IV, sizeof(IV));
@@ -949,6 +1170,26 @@ static uint8_t TestGcm(void)
         failure++;
     } else {
         (void)printf("UAES_GCM_Decrypt case 3 passed\n");
+    }
+    if (!UAES_GCM_SimpleDecrypt(KEY,
+                                sizeof(KEY),
+                                IV2,
+                                sizeof(IV2),
+                                AAD,
+                                sizeof(AAD),
+                                CT2,
+                                result,
+                                sizeof(CT2),
+                                TAG2,
+                                sizeof(TAG2))) {
+        (void)printf("UAES_GCM_SimpleDecrypt failed at verifying\n");
+    } else if (memcmp(PT, result, sizeof(PT)) != 0) {
+        (void)printf("UAES_GCM_SimpleDecrypt result error\n");
+        PrintArray(PT, sizeof(PT));
+        PrintArray(result, sizeof(result));
+        failure++;
+    } else {
+        (void)printf("UAES_GCM_SimpleDecrypt case 2 passed\n");
     }
     return failure;
 }
