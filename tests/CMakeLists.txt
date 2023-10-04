@@ -37,26 +37,26 @@ target_include_directories(uaes PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../)
 
 include(cppcheck/cppcheck.cmake)
 
-add_executable(test_simple test_simple.c)
-target_link_libraries(test_simple uaes)
+add_executable(uaes_test_simple uaes_test_simple.c)
+target_link_libraries(uaes_test_simple uaes)
 
-add_executable(test_nist test_nist.c)
-target_link_libraries(test_nist uaes)
+add_executable(uaes_test_nist uaes_test_nist.c)
+target_link_libraries(uaes_test_nist uaes)
 
 # Add tests as custom targets
-add_custom_target(do_test_simple
-    COMMAND test_simple
-    DEPENDS test_nist
+add_custom_target(test_simple
+    COMMAND uaes_test_simple
+    DEPENDS uaes_test_simple
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
-add_custom_target(do_test_nist
-    COMMAND test_nist
-    DEPENDS test_nist
+add_custom_target(test_nist
+    COMMAND uaes_test_nist
+    DEPENDS uaes_test_nist
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
 add_custom_target(tests ALL
-    DEPENDS do_test_simple do_test_nist
+    DEPENDS test_simple test_nist
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
