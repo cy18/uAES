@@ -83,6 +83,12 @@ static void InvShiftRows(State_t *state);
 static uint32_t Multiply(uint32_t x, uint8_t y);
 #endif
 
+#if (UAES_ENABLE_CTR != 0) || (UAES_ENABLE_CCM != 0) || (UAES_ENABLE_GCM != 0)
+static void IterateKeyStream(const UAES_AES_Ctx_t *ctx,
+                             uint8_t *counter,
+                             uint8_t *key_stream);
+#endif
+
 #if (UAES_ENABLE_CBC != 0) || (UAES_ENABLE_CCM != 0)
 static void XorBlocks(const uint8_t *b1, const uint8_t *b2, uint8_t *output);
 #endif
@@ -265,14 +271,7 @@ void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
         // If all the 16 bytes are used, generate the next block.
         if (ctx->byte_pos >= 16u) {
             ctx->byte_pos = 0u;
-            // Increase the counter.
-            for (size_t j = sizeof(ctx->counter); j > 0u; --j) {
-                ctx->counter[j - 1u]++;
-                if (ctx->counter[j - 1u] != 0u) {
-                    break;
-                }
-            }
-            Cipher(&ctx->aes_ctx, ctx->counter, key_stream);
+            IterateKeyStream(&ctx->aes_ctx, ctx->counter, key_stream);
         }
         output[i] = input[i] ^ key_stream[ctx->byte_pos];
         ctx->byte_pos++;
@@ -706,14 +705,7 @@ void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
     }
     for (size_t i = 0u; i < len; i++) {
         if ((ctx->data_len % 16u) == 0u) {
-            // Compute the next block of key stream.
-            for (size_t j = 15u; j > 11u; --j) {
-                ctx->counter[j]++;
-                if (ctx->counter[j] != 0u) {
-                    break;
-                }
-            }
-            Cipher(&ctx->aes_ctx, ctx->counter, key_stream);
+            IterateKeyStream(&ctx->aes_ctx, ctx->counter, key_stream);
             // Do Ghash for previous block.
             // If called the first time in this function, it compute the Ghash
             // for the last block of AAD. If len_aad == 0, then the hash_buf is
@@ -1106,6 +1098,22 @@ static uint32_t Multiply(uint32_t x, uint8_t y)
 }
 #endif
 
+#if (UAES_ENABLE_CTR != 0) || (UAES_ENABLE_CCM != 0) || (UAES_ENABLE_GCM != 0)
+// Increase the counter by 1 and compute the next block of key stream.
+static void IterateKeyStream(const UAES_AES_Ctx_t *ctx,
+                             uint8_t *counter,
+                             uint8_t *key_stream)
+{
+    for (uint8_t i = 16u; i > 0u; --i) {
+        counter[i - 1u]++;
+        if (counter[i - 1u] != 0u) {
+            break;
+        }
+    }
+    Cipher(ctx, counter, key_stream);
+}
+#endif
+
 #if (UAES_ENABLE_CBC != 0) || (UAES_ENABLE_CCM != 0)
 // Xor all bytes in b1 and b2, and store the result in output.
 static void XorBlocks(const uint8_t *b1, const uint8_t *b2, uint8_t *output)
@@ -1130,13 +1138,7 @@ static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
     for (size_t i = 0u; i < len; ++i) {
         if (ctx->byte_pos >= 16u) {
             ctx->byte_pos = 0u;
-            for (size_t j = sizeof(ctx->counter); j > 0u; --j) {
-                ctx->counter[j - 1u]++;
-                if (ctx->counter[j - 1u] != 0u) {
-                    break;
-                }
-            }
-            Cipher(&ctx->aes_ctx, ctx->counter, key_stream);
+            IterateKeyStream(&ctx->aes_ctx, ctx->counter, key_stream);
             Cipher(&ctx->aes_ctx, ctx->cbc_buf, ctx->cbc_buf);
         }
         if (encrypt) {
