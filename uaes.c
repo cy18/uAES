@@ -262,11 +262,9 @@ void UAES_CTR_Encrypt(UAES_CTR_Ctx_t *ctx,
                       uint8_t *output,
                       size_t len)
 {
-    uint8_t key_stream[16u] = { 0 };
+    uint8_t key_stream[16u];
     // Generate the key stream as it is not stored in the context.
-    if (ctx->byte_pos < 16u) {
-        Cipher(&ctx->aes_ctx, ctx->counter, key_stream);
-    }
+    Cipher(&ctx->aes_ctx, ctx->counter, key_stream);
     for (size_t i = 0u; i < len; ++i) {
         // If all the 16 bytes are used, generate the next block.
         if (ctx->byte_pos >= 16u) {
@@ -699,10 +697,9 @@ void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
                 uint8_t *output,
                 bool encrypt)
 {
-    uint8_t key_stream[16u] = { 0 };
-    if ((ctx->data_len % 16u) != 0u) {
-        Cipher(&ctx->aes_ctx, ctx->counter, key_stream);
-    }
+    uint8_t key_stream[16u];
+    // Generate the key stream as it is not stored in the context.
+    Cipher(&ctx->aes_ctx, ctx->counter, key_stream);
     for (size_t i = 0u; i < len; i++) {
         if ((ctx->data_len % 16u) == 0u) {
             IterateKeyStream(&ctx->aes_ctx, ctx->counter, key_stream);
@@ -1131,10 +1128,9 @@ static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
                        size_t len,
                        bool encrypt)
 {
-    uint8_t key_stream[16u] = { 0 };
-    if (ctx->byte_pos < 16u) {
-        Cipher(&ctx->aes_ctx, ctx->counter, key_stream);
-    }
+    uint8_t key_stream[16u];
+    // Generate the key stream as it is not stored in the context.
+    Cipher(&ctx->aes_ctx, ctx->counter, key_stream);
     for (size_t i = 0u; i < len; ++i) {
         if (ctx->byte_pos >= 16u) {
             ctx->byte_pos = 0u;
