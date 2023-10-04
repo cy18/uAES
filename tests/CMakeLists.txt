@@ -37,33 +37,26 @@ target_include_directories(uaes PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../)
 
 include(cppcheck/cppcheck.cmake)
 
-add_executable(test_128 test.c)
-target_compile_definitions(test_128 PRIVATE TEST_KEY_SIZE=128u)
-target_link_libraries(test_128 uaes)
-
-add_executable(test_192 test.c)
-target_compile_definitions(test_192 PRIVATE TEST_KEY_SIZE=192u)
-target_link_libraries(test_192 uaes)
-
-add_executable(test_256 test.c)
-target_compile_definitions(test_256 PRIVATE TEST_KEY_SIZE=256u)
-target_link_libraries(test_256 uaes)
+add_executable(test_simple test_simple.c)
+target_link_libraries(test_simple uaes)
 
 add_executable(test_nist test_nist.c)
 target_link_libraries(test_nist uaes)
 
 # Add tests as custom targets
-add_custom_target(tests ALL
-    COMMAND test_128
-    COMMAND test_192
-    COMMAND test_256
-    COMMAND test_nist
-    DEPENDS test_128 test_192 test_256 test_nist
+add_custom_target(do_test_simple
+    COMMAND test_simple
+    DEPENDS test_nist
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
 add_custom_target(do_test_nist
     COMMAND test_nist
     DEPENDS test_nist
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_custom_target(tests ALL
+    DEPENDS do_test_simple do_test_nist
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
