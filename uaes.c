@@ -107,11 +107,11 @@ static void GhashStateToData(const uint32_t u32[4u], uint8_t data[16u]);
 static void Ghash(const UAES_GCM_Ctx_t *ctx,
                   const uint8_t input[16],
                   uint8_t output[16]);
-void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
-                size_t len,
-                const uint8_t *input,
-                uint8_t *output,
-                bool encrypt);
+static void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
+                       size_t len,
+                       const uint8_t *input,
+                       uint8_t *output,
+                       bool encrypt);
 #endif
 
 #if UAES_ENABLE_ECB
@@ -691,11 +691,11 @@ static void Ghash(const UAES_GCM_Ctx_t *ctx,
 }
 
 // Do encryption/decryption.
-void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
-                size_t len,
-                const uint8_t *input,
-                uint8_t *output,
-                bool encrypt)
+static void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
+                       size_t len,
+                       const uint8_t *input,
+                       uint8_t *output,
+                       bool encrypt)
 {
     uint8_t key_stream[16u];
     // Generate the key stream as it is not stored in the context.
