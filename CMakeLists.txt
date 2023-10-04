@@ -42,7 +42,7 @@ target_include_directories(uaes_128
     ${CMAKE_CURRENT_LIST_DIR}
 )
 target_compile_definitions(uaes_128 PRIVATE
-    UAES_KEY_SIZE=128u
+    TEST_KEY_SIZE=128u
 )
 
 add_executable(uaes_192)
@@ -56,7 +56,7 @@ target_include_directories(uaes_192
     ${CMAKE_CURRENT_LIST_DIR}
 )
 target_compile_definitions(uaes_192 PRIVATE
-    UAES_KEY_SIZE=192u
+    TEST_KEY_SIZE=192u
 )
 
 add_executable(uaes_256)
@@ -70,7 +70,7 @@ target_include_directories(uaes_256
     ${CMAKE_CURRENT_LIST_DIR}
 )
 target_compile_definitions(uaes_256 PRIVATE
-    UAES_KEY_SIZE=256u
+    TEST_KEY_SIZE=256u
 )
 
 include(cmake/cppcheck.cmake)
