@@ -47,6 +47,13 @@ target_link_libraries(uaes_test_simple uaes)
 add_executable(uaes_test_nist uaes_test_nist.c)
 target_link_libraries(uaes_test_nist uaes)
 
+add_executable(uaes_benchmark
+    uaes_benchmark_main.c
+    uaes_benchmark.c
+    uaes_test_port_pc.c
+)
+target_link_libraries(uaes_benchmark uaes)
+
 # Add tests as custom targets
 add_custom_target(test_simple ALL
     COMMAND uaes_test_simple
@@ -57,6 +64,12 @@ add_custom_target(test_simple ALL
 add_custom_target(test_nist
     COMMAND uaes_test_nist
     DEPENDS uaes_test_nist
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_custom_target(benchmark
+    COMMAND uaes_benchmark
+    DEPENDS uaes_benchmark
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
