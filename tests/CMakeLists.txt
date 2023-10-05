@@ -37,7 +37,11 @@ target_include_directories(uaes PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../)
 
 include(cppcheck/cppcheck.cmake)
 
-add_executable(uaes_test_simple uaes_test_simple.c)
+add_executable(uaes_test_simple
+    test_simple_main.c
+    uaes_test_port_pc.c
+    uaes_test_simple.c
+)
 target_link_libraries(uaes_test_simple uaes)
 
 add_executable(uaes_test_nist uaes_test_nist.c)

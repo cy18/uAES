@@ -27,37 +27,14 @@
 
 #include "uaes.h"
 
+#include "uaes_test_port.h"
+
 #include <stdio.h> // cppcheck-suppress misra-c2012-21.6 ; supprssed for testing
 #include <stdlib.h>
 #include <string.h>
 
-static size_t s_success_num = 0u;
-static size_t s_failure_num = 0u;
-
-#define PRINTF(...) (void)printf(__VA_ARGS__)
-
-static void PrintArray(const uint8_t *array, uint8_t size)
-{
-    for (uint8_t i = 0u; i < size; i++) {
-        PRINTF("%02x ", array[i]);
-    }
-    PRINTF("\n");
-}
-
-static void CheckData(const uint8_t *expected,
-                      const uint8_t *actual,
-                      size_t len,
-                      const char *msg)
-{
-    if (memcmp(expected, actual, len) != 0) {
-        PRINTF("CheckData failed, %s\n", msg);
-        PrintArray(expected, len);
-        PrintArray(actual, len);
-        s_failure_num++;
-    } else {
-        s_success_num++;
-    }
-}
+static size_t s_pass_num = 0u;
+static size_t s_fail_num = 0u;
 
 static void CheckDataAndTag(const uint8_t *expected,
                             const uint8_t *actual,
@@ -68,17 +45,32 @@ static void CheckDataAndTag(const uint8_t *expected,
                             const char *msg)
 {
     if (memcmp(expected, actual, len) != 0) {
-        PRINTF("CheckDataAndTag failed, %s\n", msg);
-        PrintArray(expected, len);
-        PrintArray(actual, len);
-        s_failure_num++;
+        UAES_TP_LogString("CheckDataAndTag failed:", msg);
+        UAES_TP_LogBytes("Expected data:", expected, len);
+        UAES_TP_LogBytes("  Actual data:", actual, len);
+        s_fail_num++;
     } else if (memcmp(expected_tag, actual_tag, tag_len) != 0) {
-        PRINTF("CheckDataAndTag failed, %s\n", msg);
-        PrintArray(expected_tag, tag_len);
-        PrintArray(actual_tag, tag_len);
-        s_failure_num++;
+        UAES_TP_LogString("CheckDataAndTag failed:", msg);
+        UAES_TP_LogBytes("Expected tag:", expected_tag, tag_len);
+        UAES_TP_LogBytes("  Actual tag:", actual_tag, tag_len);
+        s_fail_num++;
     } else {
-        s_success_num++;
+        s_pass_num++;
+    }
+}
+
+static void CheckData(const uint8_t *expected,
+                      const uint8_t *actual,
+                      size_t len,
+                      const char *msg)
+{
+    if (memcmp(expected, actual, len) != 0) {
+        UAES_TP_LogString("CheckData failed:", msg);
+        UAES_TP_LogBytes("Expected data:", expected, len);
+        UAES_TP_LogBytes("  Actual data:", actual, len);
+        s_fail_num++;
+    } else {
+        s_pass_num++;
     }
 }
 
@@ -441,7 +433,7 @@ static void TestCcmCase(const uint8_t *KEY,
                                 data_len,
                                 TAG,
                                 tag_len)) {
-        PRINTF("UAES_CCM_SimpleDecrypt failed at verifying\n");
+        UAES_TP_LogString("", "UAES_CCM_SimpleDecrypt failed at verifying");
     } else {
         CheckData(IN, result, data_len, "UAES_CCM_SimpleDecrypt");
     }
@@ -682,7 +674,7 @@ static void TestCcmWithAadCase(const uint8_t *KEY,
                                 data_len,
                                 TAG,
                                 tag_len)) {
-        PRINTF("UAES_CCM_SimpleDecrypt failed at verifying\n");
+        UAES_TP_LogString("", "UAES_CCM_SimpleDecrypt failed at verifying");
     } else {
         CheckData(IN, result, data_len, "UAES_CCM_SimpleDecrypt");
     }
@@ -926,7 +918,7 @@ static void TestGcmCase(const uint8_t *KEY,
                                 data_len,
                                 TAG,
                                 tag_len)) {
-        PRINTF("UAES_GCM_SimpleDecrypt failed at verifying\n");
+        UAES_TP_LogString("", "UAES_GCM_SimpleDecrypt failed at verifying\n");
     } else {
         CheckData(PT, result, data_len, "UAES_GCM_SimpleDecrypt");
     }
@@ -1122,9 +1114,11 @@ static void TestGcm(void)
 
 #endif // UAES_ENABLE_GCM
 
-int main(void)
+void UAES_TestSimple(size_t *p_pass_num, size_t *p_fail_num)
 {
-    s_failure_num = 0u;
+    s_fail_num = 0u;
+    s_pass_num = 0u;
+    UAES_TP_Init();
 #if UAES_ENABLE_ECB
     TestECB();
 #endif
@@ -1141,6 +1135,6 @@ int main(void)
 #if UAES_ENABLE_GCM
     TestGcm();
 #endif
-    PRINTF("Success: %zu, failure: %zu\n", s_success_num, s_failure_num);
-    return (int)s_failure_num;
+    *p_pass_num = s_pass_num;
+    *p_fail_num = s_fail_num;
 }
