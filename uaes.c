@@ -41,12 +41,13 @@ typedef struct {
     uint32_t data[4];
 } State_t;
 
+#if UAES_STORE_ROUND_KEY_IN_CTX == 0
 // Store the necessary information for generating round key.
-// By generating round key dynamically, the memory usage could be reduced.
 typedef struct {
     uint8_t iter_num;
     uint32_t buf[UAES_MAX_KEY_SIZE / 32u];
 } RoundKey_t;
+#endif // UAES_STORE_ROUND_KEY_IN_CTX
 
 // Declare the static functions.
 static void Cipher(const UAES_AES_Ctx_t *ctx,
@@ -54,23 +55,32 @@ static void Cipher(const UAES_AES_Ctx_t *ctx,
                    uint8_t output[16u]);
 static void DataToState(const uint8_t data[16u], State_t *state);
 static void StateToData(const State_t *state, uint8_t data[16u]);
-static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
-                        uint8_t round,
-                        State_t *state,
-                        RoundKey_t *round_key);
-static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len);
-static void InitRoundKey(const UAES_AES_Ctx_t *ctx, RoundKey_t *round_key);
-static uint32_t GetRoundKey(const UAES_AES_Ctx_t *ctx,
-                            RoundKey_t *round_key,
-                            uint8_t word_idx);
-static void ExpandRoundKey(const UAES_AES_Ctx_t *ctx,
-                           RoundKey_t *round_key,
-                           uint8_t step);
 static void SubBytes(State_t *state);
 static uint32_t SubWord(uint32_t x);
 static void ShiftRows(State_t *state);
 static void MixColumns(State_t *state);
 static uint32_t Times2(uint32_t x);
+static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len);
+
+#if UAES_STORE_ROUND_KEY_IN_CTX
+static void ExpandRoundKey(UAES_AES_Ctx_t *ctx);
+static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
+                        uint8_t round,
+                        State_t *state);
+#else
+static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
+                        uint8_t round,
+                        State_t *state,
+                        RoundKey_t *round_key);
+static void InitRoundKey(const UAES_AES_Ctx_t *ctx, RoundKey_t *round_key);
+static uint32_t GetRoundKey(const UAES_AES_Ctx_t *ctx,
+                            RoundKey_t *round_key,
+                            uint8_t word_idx);
+static void ExpandRoundKey(uint8_t key_num_words,
+                           uint32_t *round_key_buf,
+                           uint8_t step,
+                           uint8_t iter_num);
+#endif // UAES_STORE_ROUND_KEY_IN_CTX
 
 #if ENABLE_INV_CIPHER
 static void InvCipher(const UAES_AES_Ctx_t *ctx,
@@ -731,26 +741,35 @@ static void Cipher(const UAES_AES_Ctx_t *ctx,
                    const uint8_t input[16u],
                    uint8_t output[16u])
 {
-    RoundKey_t round_key;
-
     State_t state;
     DataToState(input, &state);
-    InitRoundKey(ctx, &round_key);
 
+#if UAES_STORE_ROUND_KEY_IN_CTX
+    // Add the First round key to the state before starting the rounds.
+    AddRoundKey(ctx, 0, &state);
+#else
+    RoundKey_t round_key;
+    InitRoundKey(ctx, &round_key);
     // Add the First round key to the state before starting the rounds.
     AddRoundKey(ctx, 0, &state, &round_key);
+#endif
+
     // There are NUM_ROUNDS rounds.
     // The first NUM_ROUNDS-1 rounds are identical.
     // Last one without MixColumns()
     // It is 10 for 128-bit key, 12 for 192-bit key, and 14 for 256-bit key.
-    uint8_t num_rounds = ctx->num_words + 6u;
+    uint8_t num_rounds = ctx->keysize_word + 6u;
     for (uint8_t round = 1u; round <= num_rounds; ++round) {
         SubBytes(&state);
         ShiftRows(&state);
         if (round < num_rounds) {
             MixColumns(&state);
         }
+#if UAES_STORE_ROUND_KEY_IN_CTX
+        AddRoundKey(ctx, round, &state);
+#else
         AddRoundKey(ctx, round, &state, &round_key);
+#endif
     }
     StateToData(&state, output);
 }
@@ -778,123 +797,6 @@ static void StateToData(const State_t *state, uint8_t data[16u])
             data[i + (j * 4u)] = (uint8_t)((state->data[i] >> shift) & 0xFFu);
         }
     }
-}
-
-// This function adds the round key to state.
-// The round key is added to the state by an XOR function.
-static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
-                        uint8_t round,
-                        State_t *state,
-                        RoundKey_t *round_key)
-{
-    uint8_t key_start = (uint8_t)(round * 4u);
-    for (uint8_t i = 0u; i < 4u; ++i) {
-        uint32_t ki = GetRoundKey(ctx, round_key, key_start + i);
-        uint32_t shift = (uint32_t)i * 8u;
-        for (uint8_t j = 0u; j < 4u; ++j) {
-            uint32_t shift2 = (uint32_t)j * 8u;
-            state->data[j] ^= ((ki >> shift2) & 0xFFu) << shift;
-        }
-    }
-}
-
-// Initialize the context of AES cipher.
-static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len)
-{
-    ctx->num_words = (uint8_t)(key_len / 4u);
-    // A valid key length is required as input.
-    // However, if an invalid key length is given, set it to a valid value to
-    // avoid crashing.
-    bool valid = false;
-#if UAES_ENABLE_128
-    if (ctx->num_words == 4u) {
-        valid = true;
-    }
-#endif
-#if UAES_ENABLE_192
-    if (ctx->num_words == 6u) {
-        valid = true;
-    }
-#endif
-#if UAES_ENABLE_256
-    if (ctx->num_words == 8u) {
-        valid = true;
-    }
-#endif
-    if (!valid) {
-        ctx->num_words = (uint8_t)(UAES_MAX_KEY_SIZE / 32u);
-    }
-    for (uint8_t i = 0u; i < ctx->num_words; ++i) {
-        ctx->words[i] = 0u;
-        for (uint8_t j = 0u; j < 4u; ++j) {
-            uint32_t shift = (uint32_t)j * 8u;
-            ctx->words[i] |= ((uint32_t)key[(i * 4u) + j]) << shift;
-        }
-    }
-}
-
-// Initializing the round key struct by storing the key to the buffer.
-// Refer to https://en.wikipedia.org/wiki/AES_key_schedule for more details.
-static void InitRoundKey(const UAES_AES_Ctx_t *ctx, RoundKey_t *round_key)
-{
-    round_key->iter_num = 0u;
-    for (uint8_t i = 0u; i < ctx->num_words; ++i) {
-        round_key->buf[i] = ctx->words[i];
-    }
-}
-
-// Get the specific word of the round keys. Do key expansion when necessary.
-static uint32_t GetRoundKey(const UAES_AES_Ctx_t *ctx,
-                            RoundKey_t *round_key,
-                            uint8_t word_idx)
-{
-    // Iterate until
-    // iter_num * NUM_KEY_WORDS <= word_idx < (iter_num + 1) * NUM_KEY_WORDS
-    while (((round_key->iter_num + 1u) * ctx->num_words) <= word_idx) {
-        for (uint8_t i = 0u; i < ctx->num_words; ++i) {
-            ExpandRoundKey(ctx, round_key, i);
-        }
-        round_key->iter_num++;
-    }
-    // When invert cipher is disabled, word_idx will always be increasing, so
-    // there is no need to iterate back.
-#if ENABLE_INV_CIPHER
-    while ((round_key->iter_num * ctx->num_words) > word_idx) {
-        round_key->iter_num--;
-        for (uint8_t i = 0u; i < ctx->num_words; ++i) {
-            ExpandRoundKey(ctx,
-                           round_key,
-                           (uint8_t)((ctx->num_words - i) - 1u));
-        }
-    }
-#endif
-    return round_key->buf[word_idx - (round_key->iter_num * ctx->num_words)];
-}
-
-// Iterate the round key expansion.
-static void ExpandRoundKey(const UAES_AES_Ctx_t *ctx,
-                           RoundKey_t *round_key,
-                           uint8_t step)
-{
-    // The round constant word array, RCON[i], contains the values given by
-    // x power i in the field GF(2^8).
-    static const uint8_t RCON[10] = { 0x01, 0x02, 0x04, 0x08, 0x10,
-                                      0x20, 0x40, 0x80, 0x1b, 0x36 };
-    uint32_t tmp; // Store the intermediate results
-    if (step > 0u) {
-        tmp = round_key->buf[step - 1u];
-    } else {
-        tmp = round_key->buf[ctx->num_words - 1u];
-    }
-    if (step == 0u) {
-        tmp = (tmp >> 8u) | (tmp << 24u);
-        tmp = SubWord(tmp);
-        tmp = tmp ^ (uint32_t)RCON[round_key->iter_num];
-    }
-    if ((ctx->num_words == 8u) && (step == 4u)) {
-        tmp = SubWord(tmp);
-    }
-    round_key->buf[step] = round_key->buf[step] ^ tmp;
 }
 
 // Substitutes the whole matrix with values in the S-box.
@@ -983,31 +885,214 @@ static uint32_t Times2(uint32_t x)
     return p1 ^ p2;
 }
 
+// Initialize the context of AES cipher.
+static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len)
+{
+    // A valid key length is required as input.
+    // However, if an invalid key length is given, set it to a valid value to
+    // avoid crashing.
+    ctx->keysize_word = 0u;
+#if UAES_ENABLE_128
+    if (key_len == 16u) {
+        ctx->keysize_word = 4u;
+    }
+#endif
+#if UAES_ENABLE_192
+    if (key_len == 24u) {
+        ctx->keysize_word = 6u;
+    }
+#endif
+#if UAES_ENABLE_256
+    if (key_len == 32u) {
+        ctx->keysize_word = 8u;
+    }
+#endif
+    if (ctx->keysize_word == 0u) {
+        ctx->keysize_word = (uint8_t)(UAES_MAX_KEY_SIZE / 32u);
+    }
+    for (uint8_t i = 0u; i < ctx->keysize_word; ++i) {
+        ctx->key[i] = 0u;
+        for (uint8_t j = 0u; j < 4u; ++j) {
+            uint32_t shift = (uint32_t)j * 8u;
+            ctx->key[i] |= ((uint32_t)key[(i * 4u) + j]) << shift;
+        }
+    }
+#if UAES_STORE_ROUND_KEY_IN_CTX
+    ExpandRoundKey(ctx);
+#endif
+}
+
+#if UAES_STORE_ROUND_KEY_IN_CTX
+// This function adds the round key to state.
+// The round key is added to the state by an XOR function.
+static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
+                        uint8_t round,
+                        State_t *state)
+{
+    uint8_t key_start = (uint8_t)(round * 4u);
+    for (uint8_t i = 0u; i < 4u; ++i) {
+        uint32_t ki = ctx->key[key_start + i];
+        uint32_t shift = (uint32_t)i * 8u;
+        for (uint8_t j = 0u; j < 4u; ++j) {
+            uint32_t shift2 = (uint32_t)j * 8u;
+            state->data[j] ^= ((ki >> shift2) & 0xFFu) << shift;
+        }
+    }
+}
+
+// Expand the round key. This is only called at the initialization.
+static void ExpandRoundKey(UAES_AES_Ctx_t *ctx)
+{
+    // The round constant word array, RCON[i], contains the values given by
+    // x power i in the field GF(2^8).
+    static const uint8_t RCON[10] = { 0x01, 0x02, 0x04, 0x08, 0x10,
+                                      0x20, 0x40, 0x80, 0x1b, 0x36 };
+    uint8_t round_key_len = (uint8_t)((ctx->keysize_word + 7u) * 4u);
+    uint8_t rcon_idx = 0u;
+    for (uint8_t i = ctx->keysize_word; i < round_key_len; ++i) {
+        uint32_t tmp; // Store the intermediate results
+        tmp = ctx->key[i - 1u];
+        if ((i % ctx->keysize_word) == 0u) {
+            tmp = (tmp >> 8u) | (tmp << 24u);
+            tmp = SubWord(tmp);
+            tmp = tmp ^ (uint32_t)RCON[rcon_idx];
+            rcon_idx++;
+        }
+#if UAES_ENABLE_256
+        if ((ctx->keysize_word == 8u) && ((i % 8u) == 4u)) {
+            tmp = SubWord(tmp);
+        }
+#endif
+        ctx->key[i] = ctx->key[i - ctx->keysize_word] ^ tmp;
+    }
+}
+#else
+
+// This function adds the round key to state.
+// The round key is added to the state by an XOR function.
+static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
+                        uint8_t round,
+                        State_t *state,
+                        RoundKey_t *round_key)
+{
+    uint8_t key_start = (uint8_t)(round * 4u);
+    for (uint8_t i = 0u; i < 4u; ++i) {
+        uint32_t ki = GetRoundKey(ctx, round_key, key_start + i);
+        uint32_t shift = (uint32_t)i * 8u;
+        for (uint8_t j = 0u; j < 4u; ++j) {
+            uint32_t shift2 = (uint32_t)j * 8u;
+            state->data[j] ^= ((ki >> shift2) & 0xFFu) << shift;
+        }
+    }
+}
+
+// Initializing the round key struct by storing the key to the buffer.
+// Refer to https://en.wikipedia.org/wiki/AES_key_schedule for more details.
+static void InitRoundKey(const UAES_AES_Ctx_t *ctx, RoundKey_t *round_key)
+{
+    round_key->iter_num = 0u;
+    for (uint8_t i = 0u; i < ctx->keysize_word; ++i) {
+        round_key->buf[i] = ctx->key[i];
+    }
+}
+
+// Get the specific word of the round keys. Do key expansion when necessary.
+static uint32_t GetRoundKey(const UAES_AES_Ctx_t *ctx,
+                            RoundKey_t *round_key,
+                            uint8_t word_idx)
+{
+    // Iterate until
+    // iter_num * NUM_KEY_WORDS <= word_idx < (iter_num + 1) * NUM_KEY_WORDS
+    while (((round_key->iter_num + 1u) * ctx->keysize_word) <= word_idx) {
+        for (uint8_t i = 0u; i < ctx->keysize_word; ++i) {
+            ExpandRoundKey(ctx->keysize_word,
+                           round_key->buf,
+                           i,
+                           round_key->iter_num);
+        }
+        round_key->iter_num++;
+    }
+    // When invert cipher is disabled, word_idx will always be increasing, so
+    // there is no need to iterate back.
+#if ENABLE_INV_CIPHER
+    while ((round_key->iter_num * ctx->keysize_word) > word_idx) {
+        round_key->iter_num--;
+        for (uint8_t i = 0u; i < ctx->keysize_word; ++i) {
+            ExpandRoundKey(ctx->keysize_word,
+                           round_key->buf,
+                           (uint8_t)((ctx->keysize_word - i) - 1u),
+                           round_key->iter_num);
+        }
+    }
+#endif
+    return round_key->buf[word_idx - (round_key->iter_num * ctx->keysize_word)];
+}
+
+// Iterate the round key expansion.
+static void ExpandRoundKey(uint8_t key_num_words,
+                           uint32_t *round_key_buf,
+                           uint8_t step,
+                           uint8_t iter_num)
+{
+    // The round constant word array, RCON[i], contains the values given by
+    // x power i in the field GF(2^8).
+    static const uint8_t RCON[10] = { 0x01, 0x02, 0x04, 0x08, 0x10,
+                                      0x20, 0x40, 0x80, 0x1b, 0x36 };
+    uint32_t tmp; // Store the intermediate results
+    if (step > 0u) {
+        tmp = round_key_buf[step - 1u];
+    } else {
+        tmp = round_key_buf[key_num_words - 1u];
+    }
+    if (step == 0u) {
+        tmp = (tmp >> 8u) | (tmp << 24u);
+        tmp = SubWord(tmp);
+        tmp = tmp ^ (uint32_t)RCON[iter_num];
+    }
+#if UAES_ENABLE_256
+    if ((key_num_words == 8u) && (step == 4u)) {
+        tmp = SubWord(tmp);
+    }
+#endif
+    round_key_buf[step] = round_key_buf[step] ^ tmp;
+}
+#endif // UAES_STORE_ROUND_KEY_IN_CTX
+
 #if ENABLE_INV_CIPHER
 // The main function that decrypts the CipherText.
 static void InvCipher(const UAES_AES_Ctx_t *ctx,
                       const uint8_t input[16u],
                       uint8_t output[16u])
 {
-    RoundKey_t round_key;
-    InitRoundKey(ctx, &round_key);
-
     State_t state;
     DataToState(input, &state);
 
+#if UAES_STORE_ROUND_KEY_IN_CTX == 0
+    RoundKey_t round_key;
+    InitRoundKey(ctx, &round_key);
+#endif
+
     // It is 10 for 128-bit key, 12 for 192-bit key, and 14 for 256-bit key.
-    uint8_t num_rounds = ctx->num_words + 6u;
+    uint8_t num_rounds = ctx->keysize_word + 6u;
     // The decryption process is the reverse of encrypting process.
     for (uint8_t round = num_rounds; round > 0u; --round) {
+#if UAES_STORE_ROUND_KEY_IN_CTX
+        AddRoundKey(ctx, round, &state);
+#else
         AddRoundKey(ctx, round, &state, &round_key);
+#endif
         if (round < num_rounds) {
             InvMixColumns(&state);
         }
         InvShiftRows(&state);
         InvSubBytes(&state);
     }
+#if UAES_STORE_ROUND_KEY_IN_CTX
+    AddRoundKey(ctx, 0, &state);
+#else
     // Add the First round key as the last step
     AddRoundKey(ctx, 0, &state, &round_key);
+#endif
     StateToData(&state, output);
 }
 

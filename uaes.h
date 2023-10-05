@@ -47,6 +47,34 @@
 #define UAES_ENABLE_256 UAES_DEFAULT_CONFIG
 #endif
 
+/*
+ * UAES_STORE_ROUND_KEY_IN_CTX
+ * 0: Do not store the round key in the context.
+ * 1: Store the round key in the context.
+ * Default: 0
+ *
+ * The AES algorithm expands the key into a round key and use the round key for
+ * encryption and decryption. The round key is 176/208/240 bytes long for
+ * 128/192/256 bit key. Typically, it is generated at initialization and stored
+ * in the context.
+ *
+ * To reduce the RAM usage, this library allows the round key to be generated on
+ * the fly when needed. This saves some RAM, but cost more code space and CPU
+ * time. On a 120MHz Cortex-M4 MCU with arm-none-eabi-gcc -Os, the code size
+ * is increased by 72 bytes and the speed reduced from 252.1kBps to 167.4kBps
+ * (about 33% slower).
+ *
+ * The reduced RAM usage depends on the maximum key size enabled (may be
+ * larger than key_len given at initialization). Since the original key is no
+ * longer needed after the round key is generated, the increased RAM usage
+ * equals to the size of the round key minus the size of the original key. It is
+ * 160 bytes for 128-bit key, 184 bytes for 192-bit key, and 208 bytes for
+ * 256-bit key.
+ */
+#ifndef UAES_STORE_ROUND_KEY_IN_CTX
+#define UAES_STORE_ROUND_KEY_IN_CTX 1
+#endif
+
 #ifndef UAES_ENABLE_ECB_ENCRYPT
 #define UAES_ENABLE_ECB_ENCRYPT UAES_DEFAULT_CONFIG
 #endif
@@ -98,8 +126,14 @@
 #endif
 
 typedef struct {
-    uint32_t words[UAES_MAX_KEY_SIZE / 32u];
-    uint8_t num_words;
+    // The number of 32-bit word of AES key.
+    // It is 4 for AES128, 6 for AES192, and 8 for AES256.
+    uint8_t keysize_word;
+#if UAES_STORE_ROUND_KEY_IN_CTX == 0
+    uint32_t key[UAES_MAX_KEY_SIZE / 32u];
+#else
+    uint32_t key[((UAES_MAX_KEY_SIZE / 32u) + 7u) * 4u];
+#endif
 } UAES_AES_Ctx_t;
 
 #if UAES_ENABLE_ECB
