@@ -24,6 +24,43 @@
 
 cmake_minimum_required(VERSION 3.12)
 
+# Enable compile_commands.json
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+project(uaes C)
+
+add_compile_options(-Os -Wall -Wextra -Wpedantic)
+
 add_library(uaes)
-target_sources(uaes PRIVATE ${CMAKE_CURRENT_LIST_DIR}/uaes.c)
-target_include_directories(uaes PUBLIC ${CMAKE_CURRENT_LIST_DIR})
+target_sources(uaes PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../uaes.c)
+target_include_directories(uaes PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../)
+
+include(cppcheck/cppcheck.cmake)
+
+add_executable(uaes_test_simple
+    test_simple_main.c
+    uaes_test_port_pc.c
+    uaes_test_simple.c
+)
+target_link_libraries(uaes_test_simple uaes)
+
+add_executable(uaes_test_nist uaes_test_nist.c)
+target_link_libraries(uaes_test_nist uaes)
+
+# Add tests as custom targets
+add_custom_target(test_simple ALL
+    COMMAND uaes_test_simple
+    DEPENDS uaes_test_simple
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_custom_target(test_nist
+    COMMAND uaes_test_nist
+    DEPENDS uaes_test_nist
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_custom_target(tests
+    DEPENDS test_simple test_nist
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
