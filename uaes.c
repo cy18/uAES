@@ -805,23 +805,23 @@ static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len)
     // A valid key length is required as input.
     // However, if an invalid key length is given, set it to a valid value to
     // avoid crashing.
-    bool valid = false;
+    int8_t valid = 0;
 #if UAES_ENABLE_128
     if (ctx->num_words == 4u) {
-        valid = true;
+        valid = 1u;
     }
 #endif
 #if UAES_ENABLE_192
     if (ctx->num_words == 6u) {
-        valid = true;
+        valid = 1u;
     }
 #endif
 #if UAES_ENABLE_256
     if (ctx->num_words == 8u) {
-        valid = true;
+        valid = 1u;
     }
 #endif
-    if (!valid) {
+    if (valid == 0u) {
         ctx->num_words = (uint8_t)(UAES_MAX_KEY_SIZE / 32u);
     }
     for (uint8_t i = 0u; i < ctx->num_words; ++i) {
