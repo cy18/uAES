@@ -48,7 +48,7 @@ add_executable(uaes_test_nist uaes_test_nist.c)
 target_link_libraries(uaes_test_nist uaes)
 
 # Add tests as custom targets
-add_custom_target(test_simple
+add_custom_target(test_simple ALL
     COMMAND uaes_test_simple
     DEPENDS uaes_test_simple
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -60,7 +60,7 @@ add_custom_target(test_nist
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
-add_custom_target(tests ALL
+add_custom_target(tests
     DEPENDS test_simple test_nist
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
