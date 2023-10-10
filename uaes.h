@@ -75,6 +75,38 @@
 #define UAES_STORE_ROUND_KEY_IN_CTX 1
 #endif
 
+/*
+ * UAES_SBOX_OPTION
+ *
+ * A 8-bit substitution box (S-box) is used in the AES algorithm. Usually, it
+ * can be archived by a constant 256-byte table. However, if the flash space is
+ * limited, it can be generated on the fly or at initialization. The three
+ * options are:
+ *
+ * UAES_SBOX_OPTION = 0: Generate the S-box on the fly. This is very slow, but
+ * saves about 120 bytes of code space without additional RAM usage. On a 120MHz
+ * Cortex-M4 MCU with arm-none-eabi-gcc -Os, the speed is reduced from 264.4kBps
+ * to 11.5kBps. Only use this option if the speed is not important.
+ *
+ * UAES_SBOX_OPTION = 1: Store the S-box as a constant table. This is the
+ * default option.
+ *
+ * UAES_SBOX_OPTION = 2: Generate the S-box at initialization. The speed is the
+ * same as option 1. It saves about 172 bytes in code space but cost 256 bytes
+ * of additional RAM to store the S-box. This option is recommended if the flash
+ * space is limited while the RAM is not. One example is a bootloader.
+ *
+ * Note that the code space is measured with arm-none-eabi-gcc -Os. The result
+ * may vary with different compilers.
+ *
+ * Furthermore, the tests are done with only CTR mode enabled. if modes
+ * requiring AES decryption, such as CBC, are enabled, a reverse S-box is also
+ * needed. This would cost extra code space or RAM, depending on the option.
+ */
+#ifndef UAES_SBOX_OPTION
+#define UAES_SBOX_OPTION 1
+#endif
+
 #ifndef UAES_ENABLE_ECB_ENCRYPT
 #define UAES_ENABLE_ECB_ENCRYPT UAES_DEFAULT_CONFIG
 #endif
