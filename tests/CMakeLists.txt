@@ -51,9 +51,9 @@ add_test(NAME test_simple COMMAND uaes_test_simple)
 
 # Run test_simple with different options
 foreach(STORE_ROUND_KEY_IN_CTX 0 1)
-    foreach(SBOX_OPTION 0 1 2)
+    foreach(SBOX_MODE 0 1 2)
         foreach(U32BIT_MODE 0 1)
-            set(name uaes_test_simple_${STORE_ROUND_KEY_IN_CTX}_${SBOX_OPTION}_${U32BIT_MODE})
+            set(name uaes_test_simple_${STORE_ROUND_KEY_IN_CTX}_${SBOX_MODE}_${U32BIT_MODE})
             add_executable(${name}
                 ${CMAKE_CURRENT_LIST_DIR}/../uaes.c
                 test_simple_main.c
@@ -63,7 +63,7 @@ foreach(STORE_ROUND_KEY_IN_CTX 0 1)
             target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../)
             target_compile_definitions(${name} PRIVATE
                 UAES_STORE_ROUND_KEY_IN_CTX=${STORE_ROUND_KEY_IN_CTX}
-                UAES_SBOX_OPTION=${SBOX_OPTION}
+                UAES_SBOX_MODE=${SBOX_MODE}
                 UAES_32BIT_MODE=${U32BIT_MODE}
             )
             add_test(NAME ${name} COMMAND ${name})
