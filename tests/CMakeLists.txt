@@ -29,6 +29,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(uaes C)
 
+enable_testing()
+
 add_compile_options(-Os -Wall -Wextra -Wpedantic)
 
 add_library(uaes)
@@ -37,16 +39,21 @@ target_include_directories(uaes PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../)
 
 include(cppcheck/cppcheck.cmake)
 
+# Test simple
 add_executable(uaes_test_simple
     test_simple_main.c
     uaes_test_port_pc.c
     uaes_test_simple.c
 )
 target_link_libraries(uaes_test_simple uaes)
+add_test(NAME test_simple COMMAND uaes_test_simple)
 
+# Test NIST
 add_executable(uaes_test_nist uaes_test_nist.c)
 target_link_libraries(uaes_test_nist uaes)
+add_test(NAME test_nist COMMAND uaes_test_nist WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
+# Benchmark
 add_executable(uaes_benchmark
     uaes_benchmark_main.c
     uaes_benchmark.c
@@ -54,26 +61,8 @@ add_executable(uaes_benchmark
 )
 target_link_libraries(uaes_benchmark uaes)
 
-# Add tests as custom targets
-add_custom_target(test_simple ALL
-    COMMAND uaes_test_simple
-    DEPENDS uaes_test_simple
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-)
-
-add_custom_target(test_nist
-    COMMAND uaes_test_nist
-    DEPENDS uaes_test_nist
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-)
-
 add_custom_target(benchmark
     COMMAND uaes_benchmark
     DEPENDS uaes_benchmark
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-)
-
-add_custom_target(tests
-    DEPENDS test_simple test_nist
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
