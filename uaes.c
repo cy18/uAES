@@ -1285,20 +1285,12 @@ static void ShiftRows(State_t state)
 // time to make the best use of 32-bit CPU.
 static void MixColumns(State_t state)
 {
-    uint32_t a[4];
-    uint32_t b[4];
-    a[0] = state[0];
-    a[1] = state[1];
-    a[2] = state[2];
-    a[3] = state[3];
-    b[0] = Times2(a[0]);
-    b[1] = Times2(a[1]);
-    b[2] = Times2(a[2]);
-    b[3] = Times2(a[3]);
-    state[0] = b[0] ^ a[3] ^ a[2] ^ b[1] ^ a[1];
-    state[1] = b[1] ^ a[0] ^ a[3] ^ b[2] ^ a[2];
-    state[2] = b[2] ^ a[1] ^ a[0] ^ b[3] ^ a[3];
-    state[3] = b[3] ^ a[2] ^ a[1] ^ b[0] ^ a[0];
+    uint32_t sum = state[0] ^ state[1] ^ state[2] ^ state[3];
+    uint32_t tmp = state[0];
+    state[0] ^= sum ^ Times2(state[0] ^ state[1]);
+    state[1] ^= sum ^ Times2(state[1] ^ state[2]);
+    state[2] ^= sum ^ Times2(state[2] ^ state[3]);
+    state[3] ^= sum ^ Times2(state[3] ^ tmp);
 }
 
 // Multiply each byte in the word by 2 in the field GF(2^8).
