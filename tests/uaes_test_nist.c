@@ -32,6 +32,15 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifndef TEST_BASE_DIR
+#warning "TEST_BASE_DIR is not defined, using relative path"
+#define TEST_BASE_DIR "."
+#endif
+
+#ifndef EXPECTED_TEST_NUM
+#define EXPECTED_TEST_NUM 55606u
+#endif
+
 typedef enum {
     TYPE_UNSPECIFIED = 0,
     TYPE_ENCRYPT = 1,
@@ -452,14 +461,17 @@ static void DoTests(FuncDoTest_t func, const char *name, const char *rsp_file)
     size_t begin_num_pass = s_num_pass;
     size_t begin_num_fail = s_num_fail;
 
-    printf("Testing %s in %s\n", name, rsp_file);
+    char full_path[512u];
+    sprintf(full_path, "%s/%s", TEST_BASE_DIR, rsp_file);
+
+    printf("Testing %s in %s\n", name, full_path);
     static TestCase_t test;
     static char line_buf[512u];
     memset(&test, 0, sizeof(test));
     test.count = SIZE_MAX; // We use count to detect tests
-    FILE *file = fopen(rsp_file, "r");
+    FILE *file = fopen(full_path, "r");
     if (file == NULL) {
-        printf("Failed to open file %s\n", rsp_file);
+        printf("Failed to open file %s\n", full_path);
     }
     bool last_line = false;
     while (!last_line) {
@@ -844,21 +856,21 @@ int main(void)
     test_func = TestEcb;
     test_name = "ECB";
     const char *RSP_LIST_ECB[] = {
-        "./nist_data/aesmmt/ECBMMT128.rsp",
-        "./nist_data/aesmmt/ECBMMT192.rsp",
-        "./nist_data/aesmmt/ECBMMT256.rsp",
-        "./nist_data/KAT_AES/ECBGFSbox128.rsp",
-        "./nist_data/KAT_AES/ECBGFSbox192.rsp",
-        "./nist_data/KAT_AES/ECBGFSbox256.rsp",
-        "./nist_data/KAT_AES/ECBKeySbox128.rsp",
-        "./nist_data/KAT_AES/ECBKeySbox192.rsp",
-        "./nist_data/KAT_AES/ECBKeySbox256.rsp",
-        "./nist_data/KAT_AES/ECBVarKey128.rsp",
-        "./nist_data/KAT_AES/ECBVarKey192.rsp",
-        "./nist_data/KAT_AES/ECBVarKey256.rsp",
-        "./nist_data/KAT_AES/ECBVarTxt128.rsp",
-        "./nist_data/KAT_AES/ECBVarTxt192.rsp",
-        "./nist_data/KAT_AES/ECBVarTxt256.rsp",
+        "nist_data/aesmmt/ECBMMT128.rsp",
+        "nist_data/aesmmt/ECBMMT192.rsp",
+        "nist_data/aesmmt/ECBMMT256.rsp",
+        "nist_data/KAT_AES/ECBGFSbox128.rsp",
+        "nist_data/KAT_AES/ECBGFSbox192.rsp",
+        "nist_data/KAT_AES/ECBGFSbox256.rsp",
+        "nist_data/KAT_AES/ECBKeySbox128.rsp",
+        "nist_data/KAT_AES/ECBKeySbox192.rsp",
+        "nist_data/KAT_AES/ECBKeySbox256.rsp",
+        "nist_data/KAT_AES/ECBVarKey128.rsp",
+        "nist_data/KAT_AES/ECBVarKey192.rsp",
+        "nist_data/KAT_AES/ECBVarKey256.rsp",
+        "nist_data/KAT_AES/ECBVarTxt128.rsp",
+        "nist_data/KAT_AES/ECBVarTxt192.rsp",
+        "nist_data/KAT_AES/ECBVarTxt256.rsp",
     };
     for (size_t i = 0; i < sizeof(RSP_LIST_ECB) / sizeof(RSP_LIST_ECB[0]);
          i++) {
@@ -868,9 +880,9 @@ int main(void)
     test_func = TestEcbMct;
     test_name = "ECB MCT";
     const char *RSP_LIST_ECB_MCT[] = {
-        "./nist_data/aesmct/ECBMCT128.rsp",
-        "./nist_data/aesmct/ECBMCT192.rsp",
-        "./nist_data/aesmct/ECBMCT256.rsp",
+        "nist_data/aesmct/ECBMCT128.rsp",
+        "nist_data/aesmct/ECBMCT192.rsp",
+        "nist_data/aesmct/ECBMCT256.rsp",
     };
     for (size_t i = 0;
          i < sizeof(RSP_LIST_ECB_MCT) / sizeof(RSP_LIST_ECB_MCT[0]);
@@ -881,21 +893,21 @@ int main(void)
     test_func = TestCbc;
     test_name = "CBC";
     const char *RSP_LIST_CBC[] = {
-        "./nist_data/aesmmt/CBCMMT128.rsp",
-        "./nist_data/aesmmt/CBCMMT192.rsp",
-        "./nist_data/aesmmt/CBCMMT256.rsp",
-        "./nist_data/KAT_AES/CBCGFSbox128.rsp",
-        "./nist_data/KAT_AES/CBCGFSbox192.rsp",
-        "./nist_data/KAT_AES/CBCGFSbox256.rsp",
-        "./nist_data/KAT_AES/CBCKeySbox128.rsp",
-        "./nist_data/KAT_AES/CBCKeySbox192.rsp",
-        "./nist_data/KAT_AES/CBCKeySbox256.rsp",
-        "./nist_data/KAT_AES/CBCVarKey128.rsp",
-        "./nist_data/KAT_AES/CBCVarKey192.rsp",
-        "./nist_data/KAT_AES/CBCVarKey256.rsp",
-        "./nist_data/KAT_AES/CBCVarTxt128.rsp",
-        "./nist_data/KAT_AES/CBCVarTxt192.rsp",
-        "./nist_data/KAT_AES/CBCVarTxt256.rsp",
+        "nist_data/aesmmt/CBCMMT128.rsp",
+        "nist_data/aesmmt/CBCMMT192.rsp",
+        "nist_data/aesmmt/CBCMMT256.rsp",
+        "nist_data/KAT_AES/CBCGFSbox128.rsp",
+        "nist_data/KAT_AES/CBCGFSbox192.rsp",
+        "nist_data/KAT_AES/CBCGFSbox256.rsp",
+        "nist_data/KAT_AES/CBCKeySbox128.rsp",
+        "nist_data/KAT_AES/CBCKeySbox192.rsp",
+        "nist_data/KAT_AES/CBCKeySbox256.rsp",
+        "nist_data/KAT_AES/CBCVarKey128.rsp",
+        "nist_data/KAT_AES/CBCVarKey192.rsp",
+        "nist_data/KAT_AES/CBCVarKey256.rsp",
+        "nist_data/KAT_AES/CBCVarTxt128.rsp",
+        "nist_data/KAT_AES/CBCVarTxt192.rsp",
+        "nist_data/KAT_AES/CBCVarTxt256.rsp",
     };
     for (size_t i = 0; i < sizeof(RSP_LIST_CBC) / sizeof(RSP_LIST_CBC[0]);
          i++) {
@@ -905,9 +917,9 @@ int main(void)
     test_func = TestCbcMct;
     test_name = "CBC";
     const char *RSP_LIST_CBC_MCT[] = {
-        "./nist_data/aesmct/CBCMCT128.rsp",
-        "./nist_data/aesmct/CBCMCT192.rsp",
-        "./nist_data/aesmct/CBCMCT256.rsp",
+        "nist_data/aesmct/CBCMCT128.rsp",
+        "nist_data/aesmct/CBCMCT192.rsp",
+        "nist_data/aesmct/CBCMCT256.rsp",
     };
     for (size_t i = 0;
          i < sizeof(RSP_LIST_CBC_MCT) / sizeof(RSP_LIST_CBC_MCT[0]);
@@ -918,9 +930,9 @@ int main(void)
     test_func = TestGcmEncrypt;
     test_name = "GCM Encrypt";
     const char *RSP_LIST_GCM_ENC[] = {
-        "./nist_data/gcmtestvectors/gcmEncryptExtIV128.rsp",
-        "./nist_data/gcmtestvectors/gcmEncryptExtIV192.rsp",
-        "./nist_data/gcmtestvectors/gcmEncryptExtIV256.rsp",
+        "nist_data/gcmtestvectors/gcmEncryptExtIV128.rsp",
+        "nist_data/gcmtestvectors/gcmEncryptExtIV192.rsp",
+        "nist_data/gcmtestvectors/gcmEncryptExtIV256.rsp",
     };
     for (size_t i = 0;
          i < sizeof(RSP_LIST_GCM_ENC) / sizeof(RSP_LIST_GCM_ENC[0]);
@@ -931,9 +943,9 @@ int main(void)
     test_func = TestGcmDecrypt;
     test_name = "GCM Decrypt";
     const char *RSP_LIST_GCM_DEC[] = {
-        "./nist_data/gcmtestvectors/gcmDecrypt128.rsp",
-        "./nist_data/gcmtestvectors/gcmDecrypt192.rsp",
-        "./nist_data/gcmtestvectors/gcmDecrypt256.rsp",
+        "nist_data/gcmtestvectors/gcmDecrypt128.rsp",
+        "nist_data/gcmtestvectors/gcmDecrypt192.rsp",
+        "nist_data/gcmtestvectors/gcmDecrypt256.rsp",
     };
     for (size_t i = 0;
          i < sizeof(RSP_LIST_GCM_DEC) / sizeof(RSP_LIST_GCM_DEC[0]);
@@ -944,18 +956,18 @@ int main(void)
     test_func = TestCcmEncrypt;
     test_name = "CCM Encrypt";
     const char *RSP_LIST_CCM_ENC[] = {
-        "./nist_data/ccmtestvectors/VADT128.rsp",
-        "./nist_data/ccmtestvectors/VADT192.rsp",
-        "./nist_data/ccmtestvectors/VADT256.rsp",
-        "./nist_data/ccmtestvectors/VNT128.rsp",
-        "./nist_data/ccmtestvectors/VNT192.rsp",
-        "./nist_data/ccmtestvectors/VNT256.rsp",
-        "./nist_data/ccmtestvectors/VPT128.rsp",
-        "./nist_data/ccmtestvectors/VPT192.rsp",
-        "./nist_data/ccmtestvectors/VPT256.rsp",
-        "./nist_data/ccmtestvectors/VTT128.rsp",
-        "./nist_data/ccmtestvectors/VTT192.rsp",
-        "./nist_data/ccmtestvectors/VTT256.rsp",
+        "nist_data/ccmtestvectors/VADT128.rsp",
+        "nist_data/ccmtestvectors/VADT192.rsp",
+        "nist_data/ccmtestvectors/VADT256.rsp",
+        "nist_data/ccmtestvectors/VNT128.rsp",
+        "nist_data/ccmtestvectors/VNT192.rsp",
+        "nist_data/ccmtestvectors/VNT256.rsp",
+        "nist_data/ccmtestvectors/VPT128.rsp",
+        "nist_data/ccmtestvectors/VPT192.rsp",
+        "nist_data/ccmtestvectors/VPT256.rsp",
+        "nist_data/ccmtestvectors/VTT128.rsp",
+        "nist_data/ccmtestvectors/VTT192.rsp",
+        "nist_data/ccmtestvectors/VTT256.rsp",
     };
     for (size_t i = 0u;
          i < sizeof(RSP_LIST_CCM_ENC) / sizeof(RSP_LIST_CCM_ENC[0]);
@@ -966,9 +978,9 @@ int main(void)
     test_func = TestCcmDecrypt;
     test_name = "CCM Decrypt";
     const char *RSP_LIST_CCM_DEC[] = {
-        "./nist_data/ccmtestvectors/DVPT128.rsp",
-        "./nist_data/ccmtestvectors/DVPT192.rsp",
-        "./nist_data/ccmtestvectors/DVPT256.rsp",
+        "nist_data/ccmtestvectors/DVPT128.rsp",
+        "nist_data/ccmtestvectors/DVPT192.rsp",
+        "nist_data/ccmtestvectors/DVPT256.rsp",
     };
     for (size_t i = 0u;
          i < sizeof(RSP_LIST_CCM_DEC) / sizeof(RSP_LIST_CCM_DEC[0]);

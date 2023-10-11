@@ -52,6 +52,7 @@ add_test(NAME test_simple COMMAND uaes_test_simple)
 add_executable(uaes_test_nist uaes_test_nist.c)
 target_link_libraries(uaes_test_nist uaes)
 add_test(NAME test_nist COMMAND uaes_test_nist WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+target_compile_definitions(uaes_test_nist PRIVATE TEST_BASE_DIR="${CMAKE_SOURCE_DIR}")
 
 # Benchmark
 add_executable(uaes_benchmark
