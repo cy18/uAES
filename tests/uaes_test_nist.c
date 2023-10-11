@@ -993,7 +993,12 @@ int main(void)
     // For example:
     // find . -name "*.rsp" | grep -v "CFB" | grep -v "OFB" | xargs cat | grep
     // -i "count" | wc -l
-    printf("Total pass: %zu, total fail:%zu\n", s_num_pass, s_num_fail);
-
+    printf("Expected tests number: %u, Total pass: %zu, total fail:%zu\n",
+           EXPECTED_TEST_NUM,
+           s_num_pass,
+           s_num_fail);
+    if (s_num_pass != EXPECTED_TEST_NUM) {
+        s_num_fail++;
+    }
     return s_num_fail;
 }
