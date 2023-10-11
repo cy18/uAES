@@ -107,6 +107,14 @@
 #define UAES_SBOX_OPTION 1
 #endif
 
+/*
+ * UAES_32BIT_MODE
+ * Comment to be improved.
+ */
+#ifndef UAES_32BIT_MODE
+#define UAES_32BIT_MODE 1
+#endif
+
 #ifndef UAES_ENABLE_ECB_ENCRYPT
 #define UAES_ENABLE_ECB_ENCRYPT UAES_DEFAULT_CONFIG
 #endif
@@ -157,6 +165,18 @@
 #error "No key size specified."
 #endif
 
+#if UAES_32BIT_MODE == 0
+typedef struct {
+    // The number of 32-bit word of AES key.
+    // It is 4 for AES128, 6 for AES192, and 8 for AES256.
+    uint8_t keysize_word;
+#if UAES_STORE_ROUND_KEY_IN_CTX == 0
+    uint8_t key[UAES_MAX_KEY_SIZE / 8u];
+#else
+    uint8_t key[((UAES_MAX_KEY_SIZE / 32u) + 7u) * 16u];
+#endif
+} UAES_AES_Ctx_t;
+#else
 typedef struct {
     // The number of 32-bit word of AES key.
     // It is 4 for AES128, 6 for AES192, and 8 for AES256.
@@ -167,6 +187,7 @@ typedef struct {
     uint32_t key[((UAES_MAX_KEY_SIZE / 32u) + 7u) * 4u];
 #endif
 } UAES_AES_Ctx_t;
+#endif // UAES_32BIT_MODE == 0
 
 #if UAES_ENABLE_ECB
 typedef struct {
