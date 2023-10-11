@@ -1415,9 +1415,7 @@ static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
 static void InitRoundKey(const UAES_AES_Ctx_t *ctx, RoundKey_t *round_key)
 {
     round_key->iter_num = 0u;
-    for (uint8_t i = 0u; i < ctx->keysize_word; ++i) {
-        round_key->buf[i] = ctx->key[i];
-    }
+    (void)memcpy(round_key->buf, ctx->key, sizeof(round_key->buf));
 }
 
 // Get the specific word of the round keys. Do key expansion when necessary.
