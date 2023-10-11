@@ -109,7 +109,28 @@
 
 /*
  * UAES_32BIT_MODE
- * Comment to be improved.
+ *
+ * 0: Use 8-bit operations for AES when possible. Recommended for 8-bit MCU or
+ * the Flash space is limited.
+ * 1: Use 32-bit operations for AES when possible. Recommended for 32-bit MCU.
+ *
+ * Though the AES algorithm is defined in terms of 8-bit operations, many
+ * operations can be done in 32-bit. On a 32-bit MCU, this can improve the
+ * speed by about 30% with a small increase in code size. However, on a 8-bit
+ * MCU, it may be slower and larger.
+ *
+ * On a 120MHz Cortex-M4 MCU with arm-none-eabi-gcc -Os with only CTR mode, the
+ * code size is 950 bytes for UAES_32BIT_MODE = 0 and 1038 bytes for
+ * UAES_32BIT_MODE = 0. The speed is 300.0kBps for UAES_32BIT_MODE = 0 and
+ * 386.4kBps for UAES_32BIT_MODE = 1.
+ *
+ * When the speed is important, using -O3 together with UAES_32BIT_MODE = 1 is
+ * recommended. On the same 120MHz Cortex-M4 MCU, the speed increased from
+ * 386.4kBps to  1097.7kBps.
+ *
+ * The code size and speed may vary with different compilers and MCUs. The speed
+ * can be tested with the benchmark program tests/uaes_benchmark.c on your
+ * platform.
  */
 #ifndef UAES_32BIT_MODE
 #define UAES_32BIT_MODE 1
