@@ -40,20 +40,20 @@ target_include_directories(uaes PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../)
 include(cppcheck/cppcheck.cmake)
 
 # Run test_simple with default options
-add_executable(uaes_test_simple
+add_executable(test_simple
     test_simple_main.c
     uaes_test_port_pc.c
     uaes_test_simple.c
 )
-target_link_libraries(uaes_test_simple uaes)
-
-add_test(NAME test_simple COMMAND uaes_test_simple)
+target_link_libraries(test_simple uaes)
+add_test(NAME test_simple COMMAND test_simple)
+set_tests_properties(test_simple PROPERTIES LABELS "simple")
 
 # Run test_simple with different options
 foreach(STORE_ROUND_KEY_IN_CTX 0 1)
     foreach(SBOX_MODE 0 1 2)
         foreach(U32BIT_MODE 0 1)
-            set(name uaes_test_simple_${STORE_ROUND_KEY_IN_CTX}_${SBOX_MODE}_${U32BIT_MODE})
+            set(name test_simple_${STORE_ROUND_KEY_IN_CTX}_${SBOX_MODE}_${U32BIT_MODE})
             add_executable(${name}
                 ${CMAKE_CURRENT_LIST_DIR}/../uaes.c
                 test_simple_main.c
@@ -67,15 +67,39 @@ foreach(STORE_ROUND_KEY_IN_CTX 0 1)
                 UAES_32BIT_MODE=${U32BIT_MODE}
             )
             add_test(NAME ${name} COMMAND ${name})
+            set_tests_properties(${name} PROPERTIES LABELS "simple")
         endforeach()
     endforeach()
 endforeach()
 
 # Test NIST
-add_executable(uaes_test_nist uaes_test_nist.c)
-target_link_libraries(uaes_test_nist uaes)
-add_test(NAME test_nist COMMAND uaes_test_nist WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-target_compile_definitions(uaes_test_nist PRIVATE TEST_BASE_DIR="${CMAKE_SOURCE_DIR}")
+add_executable(test_nist uaes_test_nist.c)
+target_link_libraries(test_nist uaes)
+target_compile_definitions(test_nist PRIVATE TEST_BASE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME test_nist COMMAND test_nist WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+set_tests_properties(test_nist PROPERTIES LABELS "nist")
+
+# Run test_nist with different options
+foreach(STORE_ROUND_KEY_IN_CTX 0 1)
+    foreach(SBOX_MODE 0 1 2)
+        foreach(U32BIT_MODE 0 1)
+            set(name test_nist_${STORE_ROUND_KEY_IN_CTX}_${SBOX_MODE}_${U32BIT_MODE})
+            add_executable(${name}
+                ${CMAKE_CURRENT_LIST_DIR}/../uaes.c
+                uaes_test_nist.c
+            )
+            target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../)
+            target_compile_definitions(${name} PRIVATE
+                UAES_STORE_ROUND_KEY_IN_CTX=${STORE_ROUND_KEY_IN_CTX}
+                UAES_SBOX_MODE=${SBOX_MODE}
+                UAES_32BIT_MODE=${U32BIT_MODE}
+            )
+            target_compile_definitions(${name} PRIVATE TEST_BASE_DIR="${CMAKE_SOURCE_DIR}")
+            add_test(NAME ${name} COMMAND ${name} WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+            set_tests_properties(${name} PROPERTIES LABELS "nist")
+        endforeach()
+    endforeach()
+endforeach()
 
 # Benchmark
 add_executable(uaes_benchmark
