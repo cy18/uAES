@@ -39,14 +39,37 @@ target_include_directories(uaes PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../)
 
 include(cppcheck/cppcheck.cmake)
 
-# Test simple
+# Run test_simple with default options
 add_executable(uaes_test_simple
     test_simple_main.c
     uaes_test_port_pc.c
     uaes_test_simple.c
 )
 target_link_libraries(uaes_test_simple uaes)
+
 add_test(NAME test_simple COMMAND uaes_test_simple)
+
+# Run test_simple with different options
+foreach(STORE_ROUND_KEY_IN_CTX 0 1)
+    foreach(SBOX_OPTION 0 1 2)
+        foreach(U32BIT_MODE 0 1)
+            set(name uaes_test_simple_${STORE_ROUND_KEY_IN_CTX}_${SBOX_OPTION}_${U32BIT_MODE})
+            add_executable(${name}
+                ${CMAKE_CURRENT_LIST_DIR}/../uaes.c
+                test_simple_main.c
+                uaes_test_port_pc.c
+                uaes_test_simple.c
+            )
+            target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../)
+            target_compile_definitions(${name} PRIVATE
+                UAES_STORE_ROUND_KEY_IN_CTX=${STORE_ROUND_KEY_IN_CTX}
+                UAES_SBOX_OPTION=${SBOX_OPTION}
+                UAES_32BIT_MODE=${U32BIT_MODE}
+            )
+            add_test(NAME ${name} COMMAND ${name})
+        endforeach()
+    endforeach()
+endforeach()
 
 # Test NIST
 add_executable(uaes_test_nist uaes_test_nist.c)
