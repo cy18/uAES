@@ -1357,11 +1357,8 @@ static void AddRoundKey(const UAES_AES_Ctx_t *ctx, uint8_t round, State_t state)
     uint8_t key_start = (uint8_t)(round * 4u);
     for (uint8_t i = 0u; i < 4u; ++i) {
         uint32_t ki = ctx->key[key_start + i];
-        uint32_t shift = (uint32_t)i * 8u;
-        for (uint8_t j = 0u; j < 4u; ++j) {
-            uint32_t shift2 = (uint32_t)j * 8u;
-            state[j] ^= ((ki >> shift2) & 0xFFu) << shift;
-        }
+        // The round key save in context is already transposed.
+        state[i] ^= ki;
     }
 }
 
@@ -1389,6 +1386,16 @@ static void ExpandRoundKey(UAES_AES_Ctx_t *ctx)
         }
 #endif
         ctx->key[i] = ctx->key[i - ctx->keysize_word] ^ tmp;
+    }
+    // Do transpose here to make the best use of 32-bit CPU.
+    for (uint8_t i = 0u; i < round_key_len; i += 4u) {
+        uint8_t tmp[16];
+        for (uint8_t j = 0u; j < 4u; ++j) {
+            for (uint8_t k = 0u; k < 4u; ++k) {
+                tmp[(j * 4u) + k] = (uint8_t)(ctx->key[i + j] >> (k * 8u));
+            }
+        }
+        DataToState(tmp, &(ctx->key[i]));
     }
 }
 #else
