@@ -1,6 +1,6 @@
 {
     "script": "${MISRA_ADDON}",
     "args": [
-        "--rule-texts=${CMAKE_CURRENT_LIST_DIR}/cppcheck/misra_rules.txt"
+        "--rule-texts=${CMAKE_CURRENT_LIST_DIR}/misra_rules.txt"
     ]
 }
