@@ -33,20 +33,69 @@
 #define ENABLE_INV_CIPHER 1
 #endif
 
+#if UAES_32BIT_MODE == 0
+typedef uint8_t State_t[16];
+#else
 // Store the 4x4 bytes AES cipher matrix by 4 uint32.
 // Each uint32 represents a row in the matrix.
 // In each uint32, the LSB is the first element in the row, and the MSB is the
 // last. In other words, the bytes are stored in little endian order in uint32.
 typedef uint32_t State_t[4];
+#endif
 
 #if UAES_STORE_ROUND_KEY_IN_CTX == 0
 // Store the necessary information for generating round key.
+#if UAES_32BIT_MODE == 0
+typedef struct {
+    uint8_t iter_num;
+    uint8_t buf[UAES_MAX_KEY_SIZE / 8u];
+} RoundKey_t;
+#else
 typedef struct {
     uint8_t iter_num;
     uint32_t buf[UAES_MAX_KEY_SIZE / 32u];
 } RoundKey_t;
+#endif
 #endif // UAES_STORE_ROUND_KEY_IN_CTX
 
+#if UAES_32BIT_MODE == 0
+// Declare the static functions.
+static void Cipher(const UAES_AES_Ctx_t *ctx,
+                   const uint8_t input[16u],
+                   uint8_t output[16u]);
+static void SubBytes(State_t state);
+static void ShiftRows(State_t state);
+static void MixColumns(State_t state);
+static uint8_t Times2(uint8_t x);
+static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len);
+#if UAES_STORE_ROUND_KEY_IN_CTX
+static void ExpandRoundKey(UAES_AES_Ctx_t *ctx);
+static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
+                        uint8_t round,
+                        State_t state);
+#else
+static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
+                        uint8_t round,
+                        State_t state,
+                        RoundKey_t *round_key);
+static void InitRoundKey(const UAES_AES_Ctx_t *ctx, RoundKey_t *round_key);
+static uint8_t GetRoundKey(const UAES_AES_Ctx_t *ctx,
+                           RoundKey_t *round_key,
+                           uint8_t idx);
+static void ExpandRoundKey(uint8_t key_num_words,
+                           uint8_t *round_key_buf,
+                           uint8_t step,
+                           uint8_t iter_num);
+#endif // UAES_STORE_ROUND_KEY_IN_CTX
+#if ENABLE_INV_CIPHER
+static void InvCipher(const UAES_AES_Ctx_t *ctx,
+                      const uint8_t input[16u],
+                      uint8_t output[16u]);
+static void InvMixColumns(State_t state);
+static void InvSubBytes(State_t state);
+static void InvShiftRows(State_t state);
+#endif // ENABLE_INV_CIPHER
+#else
 // Declare the static functions.
 static void Cipher(const UAES_AES_Ctx_t *ctx,
                    const uint8_t input[16u],
@@ -79,8 +128,23 @@ static void ExpandRoundKey(uint8_t key_num_words,
                            uint8_t step,
                            uint8_t iter_num);
 #endif // UAES_STORE_ROUND_KEY_IN_CTX
+#if ENABLE_INV_CIPHER
+static void InvCipher(const UAES_AES_Ctx_t *ctx,
+                      const uint8_t input[16u],
+                      uint8_t output[16u]);
+static void InvMixColumns(State_t state);
+static void InvSubBytes(State_t state);
+static uint8_t InvSubByte(uint8_t x);
+static uint32_t InvSubWord(uint32_t x);
+static void InvShiftRows(State_t state);
+#endif
+#endif // UAES_32BIT_MODE == 0
 
 static uint8_t SubByte(uint8_t x);
+
+#if ENABLE_INV_CIPHER
+static uint8_t InvSubByte(uint8_t x);
+#endif
 
 #if UAES_SBOX_OPTION == 0
 static uint8_t Gf28Div(uint16_t a, uint16_t b, uint16_t *p_remain);
@@ -105,17 +169,6 @@ static uint32_t Multiply(uint32_t x, uint8_t y);
 
 #if (ENABLE_INV_CIPHER == 1) && (UAES_SBOX_OPTION == 0)
 static uint8_t RSboxAffineTransform(uint8_t x);
-#endif
-
-#if ENABLE_INV_CIPHER
-static void InvCipher(const UAES_AES_Ctx_t *ctx,
-                      const uint8_t input[16u],
-                      uint8_t output[16u]);
-static void InvMixColumns(State_t state);
-static void InvSubBytes(State_t state);
-static uint8_t InvSubByte(uint8_t x);
-static uint32_t InvSubWord(uint32_t x);
-static void InvShiftRows(State_t state);
 #endif
 
 #if (UAES_ENABLE_CTR != 0) || (UAES_ENABLE_CCM != 0) || (UAES_ENABLE_GCM != 0)
@@ -761,6 +814,378 @@ static void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
 }
 #endif // UAES_ENABLE_GCM
 
+#if UAES_32BIT_MODE == 0
+// Cipher is the main function that encrypts the PlainText.
+static void Cipher(const UAES_AES_Ctx_t *ctx,
+                   const uint8_t input[16u],
+                   uint8_t output[16u])
+{
+    (void)memcpy(output, input, 16u);
+#if UAES_STORE_ROUND_KEY_IN_CTX
+    // Add the First round key to the state before starting the rounds.
+    AddRoundKey(ctx, 0, output);
+#else
+    RoundKey_t round_key;
+    InitRoundKey(ctx, &round_key);
+    // Add the First round key to the state before starting the rounds.
+    AddRoundKey(ctx, 0, output, &round_key);
+#endif
+
+    // There are NUM_ROUNDS rounds.
+    // The first NUM_ROUNDS-1 rounds are identical.
+    // Last one without MixColumns()
+    // It is 10 for 128-bit key, 12 for 192-bit key, and 14 for 256-bit key.
+    uint8_t num_rounds = ctx->keysize_word + 6u;
+    for (uint8_t round = 1u; round <= num_rounds; ++round) {
+        SubBytes(output);
+        ShiftRows(output);
+        if (round < num_rounds) {
+            MixColumns(output);
+        }
+#if UAES_STORE_ROUND_KEY_IN_CTX
+        AddRoundKey(ctx, round, output);
+#else
+        AddRoundKey(ctx, round, output, &round_key);
+#endif
+    }
+}
+
+// Substitutes the whole matrix with values in the S-box.
+static void SubBytes(State_t state)
+{
+    for (uint8_t i = 0u; i < 16u; ++i) {
+        state[i] = SubByte(state[i]);
+    }
+}
+
+// Shifts the rows in the state to the left. Each row is shifted with different
+// offset. Offset = Row number. So the first row is not shifted.
+// Since the data is stored in little endian order, the shift direction is
+// reversed.
+static void ShiftRows(State_t state)
+{
+    uint8_t tmp;
+    // No change on first row
+    // Row 1
+    tmp = state[1];
+    state[1] = state[5];
+    state[5] = state[9];
+    state[9] = state[13];
+    state[13] = tmp;
+    // Row 2
+    tmp = state[2];
+    state[2] = state[10];
+    state[10] = tmp;
+    tmp = state[6];
+    state[6] = state[14];
+    state[14] = tmp;
+    // Row 3
+    tmp = state[3];
+    state[3] = state[15];
+    state[15] = state[11];
+    state[11] = state[7];
+    state[7] = tmp;
+}
+
+// Mixes the columns of the state matrix.
+static void MixColumns(State_t state)
+{
+    for (uint8_t i = 0u; i < 4u; ++i) {
+        uint8_t *p = &state[i * 4u];
+        uint8_t sum = p[0] ^ p[1] ^ p[2] ^ p[3];
+        uint8_t p0 = p[0];
+        p[0] ^= sum ^ Times2(p[0] ^ p[1]);
+        p[1] ^= sum ^ Times2(p[1] ^ p[2]);
+        p[2] ^= sum ^ Times2(p[2] ^ p[3]);
+        p[3] ^= sum ^ Times2(p[3] ^ p0);
+    }
+}
+
+// Multiply each byte in the word by 2 in the field GF(2^8).
+static uint8_t Times2(uint8_t x)
+{
+    return (uint8_t)((x << 1u) ^ ((x >> 7u) * 0x1Bu));
+}
+
+// Initialize the context of AES cipher.
+static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len)
+{
+#if UAES_SBOX_OPTION == 2
+    EnsureSboxInitialized();
+#endif
+    // A valid key length is required as input.
+    // However, if an invalid key length is given, set it to a valid value to
+    // avoid crashing.
+    ctx->keysize_word = 0u;
+#if UAES_ENABLE_128
+    if (key_len == 16u) {
+        ctx->keysize_word = 4u;
+    }
+#endif
+#if UAES_ENABLE_192
+    if (key_len == 24u) {
+        ctx->keysize_word = 6u;
+    }
+#endif
+#if UAES_ENABLE_256
+    if (key_len == 32u) {
+        ctx->keysize_word = 8u;
+    }
+#endif
+    if (ctx->keysize_word == 0u) {
+        ctx->keysize_word = (uint8_t)(UAES_MAX_KEY_SIZE / 32u);
+    }
+#if UAES_32BIT_MODE == 0
+    (void)memcpy(ctx->key, key, key_len);
+#else
+    for (uint8_t i = 0u; i < ctx->keysize_word; ++i) {
+        ctx->key[i] = 0u;
+        for (uint8_t j = 0u; j < 4u; ++j) {
+            uint32_t shift = (uint32_t)j * 8u;
+            ctx->key[i] |= ((uint32_t)key[(i * 4u) + j]) << shift;
+        }
+    }
+#endif
+#if UAES_STORE_ROUND_KEY_IN_CTX
+    ExpandRoundKey(ctx);
+#endif
+}
+
+#if UAES_STORE_ROUND_KEY_IN_CTX
+// This function adds the round key to state.
+// The round key is added to the state by an XOR function.
+static void AddRoundKey(const UAES_AES_Ctx_t *ctx, uint8_t round, State_t state)
+{
+    uint8_t key_start = (uint8_t)(round * 16u);
+    for (uint8_t i = 0u; i < 16u; ++i) {
+        state[i] ^= ctx->key[key_start + i];
+    }
+}
+
+// Expand the round key. This is only called at the initialization.
+static void ExpandRoundKey(UAES_AES_Ctx_t *ctx)
+{
+    // The round constant word array, RCON[i], contains the values given by
+    // x power i in the field GF(2^8).
+    static const uint8_t RCON[10] = { 0x01, 0x02, 0x04, 0x08, 0x10,
+                                      0x20, 0x40, 0x80, 0x1b, 0x36 };
+    uint8_t round_key_len = (uint8_t)((ctx->keysize_word + 7u) * 4u);
+    uint8_t rcon_idx = 0u;
+    for (uint8_t i = ctx->keysize_word; i < round_key_len; ++i) {
+        uint8_t tmp[4]; // Store the intermediate results
+        tmp[0] = ctx->key[(i * 4u) - 4u];
+        tmp[1] = ctx->key[(i * 4u) - 3u];
+        tmp[2] = ctx->key[(i * 4u) - 2u];
+        tmp[3] = ctx->key[(i * 4u) - 1u];
+        if ((i % ctx->keysize_word) == 0u) {
+            uint8_t tt = tmp[0];
+            tmp[0] = SubByte(tmp[1]) ^ RCON[rcon_idx];
+            tmp[1] = SubByte(tmp[2]);
+            tmp[2] = SubByte(tmp[3]);
+            tmp[3] = SubByte(tt);
+            rcon_idx++;
+        }
+#if UAES_ENABLE_256
+        if ((ctx->keysize_word == 8u) && ((i % 8u) == 4u)) {
+            tmp[0] = SubByte(tmp[0]);
+            tmp[1] = SubByte(tmp[1]);
+            tmp[2] = SubByte(tmp[2]);
+            tmp[3] = SubByte(tmp[3]);
+        }
+#endif
+        uint8_t p = i * 4u;
+        uint8_t q = (i - ctx->keysize_word) * 4u;
+        ctx->key[p] = ctx->key[q] ^ tmp[0];
+        ctx->key[p + 1u] = ctx->key[q + 1u] ^ tmp[1];
+        ctx->key[p + 2u] = ctx->key[q + 2u] ^ tmp[2];
+        ctx->key[p + 3u] = ctx->key[q + 3u] ^ tmp[3];
+    }
+}
+#else
+
+// This function adds the round key to state.
+// The round key is added to the state by an XOR function.
+static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
+                        uint8_t round,
+                        State_t state,
+                        RoundKey_t *round_key)
+{
+    uint8_t key_start = (uint8_t)(round * 16u);
+    for (uint8_t i = 0u; i < 16u; ++i) {
+        state[i] ^= GetRoundKey(ctx, round_key, key_start + i);
+    }
+}
+
+// Initializing the round key struct by storing the key to the buffer.
+// Refer to https://en.wikipedia.org/wiki/AES_key_schedule for more details.
+static void InitRoundKey(const UAES_AES_Ctx_t *ctx, RoundKey_t *round_key)
+{
+    round_key->iter_num = 0u;
+    (void)memcpy(round_key->buf, ctx->key, sizeof(round_key->buf));
+}
+
+// Get the specific byte of the round keys. Do key expansion when necessary.
+static uint8_t GetRoundKey(const UAES_AES_Ctx_t *ctx,
+                           RoundKey_t *round_key,
+                           uint8_t idx)
+{
+    // Iterate until
+    // iter_num * NUM_KEY_WORDS <= idx/4 < (iter_num + 1) * NUM_KEY_WORDS
+    while (((round_key->iter_num + 1u) * ctx->keysize_word) <= (idx >> 2u)) {
+        for (uint8_t i = 0u; i < ctx->keysize_word; ++i) {
+            ExpandRoundKey(ctx->keysize_word,
+                           round_key->buf,
+                           i,
+                           round_key->iter_num);
+        }
+        round_key->iter_num++;
+    }
+    // When invert cipher is disabled, word_idx will always be increasing, so
+    // there is no need to iterate back.
+#if ENABLE_INV_CIPHER
+    while ((round_key->iter_num * ctx->keysize_word) > (idx >> 2u)) {
+        round_key->iter_num--;
+        for (uint8_t i = 0u; i < ctx->keysize_word; ++i) {
+            ExpandRoundKey(ctx->keysize_word,
+                           round_key->buf,
+                           (uint8_t)((ctx->keysize_word - i) - 1u),
+                           round_key->iter_num);
+        }
+    }
+#endif
+    return round_key->buf[idx - (round_key->iter_num * ctx->keysize_word * 4u)];
+}
+
+// Iterate the round key expansion.
+static void ExpandRoundKey(uint8_t key_num_words,
+                           uint8_t *round_key_buf,
+                           uint8_t step,
+                           uint8_t iter_num)
+{
+    // The round constant word array, RCON[i], contains the values given by
+    // x power i in the field GF(2^8).
+    static const uint8_t RCON[10] = { 0x01, 0x02, 0x04, 0x08, 0x10,
+                                      0x20, 0x40, 0x80, 0x1b, 0x36 };
+    uint8_t tmp[4u]; // Store the intermediate results
+    uint8_t *p;
+    if (step > 0u) {
+        p = (uint8_t *)&round_key_buf[(step - 1u) * 4u];
+    } else {
+        p = (uint8_t *)&round_key_buf[(key_num_words - 1u) * 4u];
+    }
+    tmp[0] = p[0];
+    tmp[1] = p[1];
+    tmp[2] = p[2];
+    tmp[3] = p[3];
+    if (step == 0u) {
+        uint8_t tt = tmp[0];
+        tmp[0] = SubByte(tmp[1]) ^ RCON[iter_num];
+        tmp[1] = SubByte(tmp[2]);
+        tmp[2] = SubByte(tmp[3]);
+        tmp[3] = SubByte(tt);
+    }
+#if UAES_ENABLE_256
+    if ((key_num_words == 8u) && (step == 4u)) {
+        tmp[0] = SubByte(tmp[0]);
+        tmp[1] = SubByte(tmp[1]);
+        tmp[2] = SubByte(tmp[2]);
+        tmp[3] = SubByte(tmp[3]);
+    }
+#endif
+    round_key_buf[step * 4u] ^= tmp[0];
+    round_key_buf[(step * 4u) + 1u] ^= tmp[1];
+    round_key_buf[(step * 4u) + 2u] ^= tmp[2];
+    round_key_buf[(step * 4u) + 3u] ^= tmp[3];
+}
+#endif // UAES_STORE_ROUND_KEY_IN_CTX
+#if ENABLE_INV_CIPHER
+// The main function that decrypts the CipherText.
+static void InvCipher(const UAES_AES_Ctx_t *ctx,
+                      const uint8_t input[16u],
+                      uint8_t output[16u])
+{
+#if UAES_STORE_ROUND_KEY_IN_CTX == 0
+    RoundKey_t round_key;
+    InitRoundKey(ctx, &round_key);
+#endif
+    (void)memcpy(output, input, 16u);
+    // It is 10 for 128-bit key, 12 for 192-bit key, and 14 for 256-bit key.
+    uint8_t num_rounds = ctx->keysize_word + 6u;
+    // The decryption process is the reverse of encrypting process.
+    for (uint8_t round = num_rounds; round > 0u; --round) {
+#if UAES_STORE_ROUND_KEY_IN_CTX
+        AddRoundKey(ctx, round, output);
+#else
+        AddRoundKey(ctx, round, output, &round_key);
+#endif
+        if (round < num_rounds) {
+            InvMixColumns(output);
+        }
+        InvShiftRows(output);
+        InvSubBytes(output);
+    }
+#if UAES_STORE_ROUND_KEY_IN_CTX
+    AddRoundKey(ctx, 0, output);
+#else
+    // Add the First round key as the last step
+    AddRoundKey(ctx, 0, output, &round_key);
+#endif
+}
+
+// Reverses the MixColumns step in the Cipher.
+static void InvMixColumns(State_t state)
+{
+    for (uint8_t i = 0u; i < 4u; ++i) {
+        uint8_t a[4];
+        a[0] = state[i * 4u];
+        a[1] = state[(i * 4u) + 1u];
+        a[2] = state[(i * 4u) + 2u];
+        a[3] = state[(i * 4u) + 3u];
+        for (uint8_t j = 0u; j < 4u; ++j) {
+            state[(i * 4u) + j] = Multiply(a[j], 0x0e);
+            state[(i * 4u) + j] ^= Multiply(a[(j + 1u) & 3u], 0x0b);
+            state[(i * 4u) + j] ^= Multiply(a[(j + 2u) & 3u], 0x0d);
+            state[(i * 4u) + j] ^= Multiply(a[(j + 3u) & 3u], 0x09);
+        }
+    }
+}
+
+// Reverses the SubBytes step in the Cipher.
+static void InvSubBytes(State_t state)
+{
+    for (uint8_t i = 0u; i < 16u; ++i) {
+        state[i] = InvSubByte(state[i]);
+    }
+}
+
+// Reverses the ShiftRows step in the Cipher.
+static void InvShiftRows(State_t state)
+{
+    uint8_t tmp;
+    // No change on first row
+    // Row 1
+    tmp = state[13];
+    state[13] = state[9];
+    state[9] = state[5];
+    state[5] = state[1];
+    state[1] = tmp;
+    // Row 2
+    tmp = state[10];
+    state[10] = state[2];
+    state[2] = tmp;
+    tmp = state[14];
+    state[14] = state[6];
+    state[6] = tmp;
+    // Row 3
+    tmp = state[7];
+    state[7] = state[11];
+    state[11] = state[15];
+    state[15] = state[3];
+    state[3] = tmp;
+}
+
+#endif
+#else
 // Cipher is the main function that encrypts the PlainText.
 static void Cipher(const UAES_AES_Ctx_t *ctx,
                    const uint8_t input[16u],
@@ -1058,6 +1483,91 @@ static void ExpandRoundKey(uint8_t key_num_words,
 }
 #endif // UAES_STORE_ROUND_KEY_IN_CTX
 
+#if ENABLE_INV_CIPHER
+// The main function that decrypts the CipherText.
+static void InvCipher(const UAES_AES_Ctx_t *ctx,
+                      const uint8_t input[16u],
+                      uint8_t output[16u])
+{
+    State_t state;
+    DataToState(input, state);
+
+#if UAES_STORE_ROUND_KEY_IN_CTX == 0
+    RoundKey_t round_key;
+    InitRoundKey(ctx, &round_key);
+#endif
+
+    // It is 10 for 128-bit key, 12 for 192-bit key, and 14 for 256-bit key.
+    uint8_t num_rounds = ctx->keysize_word + 6u;
+    // The decryption process is the reverse of encrypting process.
+    for (uint8_t round = num_rounds; round > 0u; --round) {
+#if UAES_STORE_ROUND_KEY_IN_CTX
+        AddRoundKey(ctx, round, state);
+#else
+        AddRoundKey(ctx, round, state, &round_key);
+#endif
+        if (round < num_rounds) {
+            InvMixColumns(state);
+        }
+        InvShiftRows(state);
+        InvSubBytes(state);
+    }
+#if UAES_STORE_ROUND_KEY_IN_CTX
+    AddRoundKey(ctx, 0, state);
+#else
+    // Add the First round key as the last step
+    AddRoundKey(ctx, 0, state, &round_key);
+#endif
+    StateToData(state, output);
+}
+
+// Reverses the MixColumns step in the Cipher.
+static void InvMixColumns(State_t state)
+{
+    uint32_t a[4u];
+    for (uint8_t i = 0u; i < 4u; ++i) {
+        a[i] = state[i];
+    }
+    for (uint8_t i = 0u; i < 4u; ++i) {
+        state[i] = Multiply(a[i], 0x0e);
+        state[i] ^= Multiply(a[(i + 1u) & 3u], 0x0b);
+        state[i] ^= Multiply(a[(i + 2u) & 3u], 0x0d);
+        state[i] ^= Multiply(a[(i + 3u) & 3u], 0x09);
+    }
+}
+
+// Reverses the SubBytes step in the Cipher.
+static void InvSubBytes(State_t state)
+{
+    state[0] = InvSubWord(state[0]);
+    state[1] = InvSubWord(state[1]);
+    state[2] = InvSubWord(state[2]);
+    state[3] = InvSubWord(state[3]);
+}
+
+// Reverses the SubWord step in the Cipher.
+static uint32_t InvSubWord(uint32_t x)
+{
+    uint32_t tmp = 0u;
+    for (uint8_t i = 0u; i <= 24u; i += 8u) {
+        tmp |= (uint32_t)InvSubByte((uint8_t)(x >> i)) << i;
+    }
+    return tmp;
+}
+
+// Reverses the ShiftRows step in the Cipher.
+static void InvShiftRows(State_t state)
+{
+    // No change on first row
+    state[1] = (state[1] << 8u) | (state[1] >> 24u);
+    state[2] = (state[2] << 16u) | (state[2] >> 16u);
+    state[3] = (state[3] << 24u) | (state[3] >> 8u);
+}
+
+#endif
+
+#endif // UAES_32BIT_MODE == 0
+
 // Substitute the byte with the value in the S-box.
 static uint8_t SubByte(uint8_t x)
 {
@@ -1101,6 +1611,52 @@ static uint8_t SubByte(uint8_t x)
 #error "Invalid UAES_SBOX_OPTION"
 #endif // UAES_SBOX_OPTION
 }
+
+#if ENABLE_INV_CIPHER
+// Reverse of SubByte()
+static uint8_t InvSubByte(uint8_t x)
+{
+#if UAES_SBOX_OPTION == 0
+    uint8_t ret;
+    if (x == 0x63u) {
+        ret = 0u;
+    } else {
+        ret = Gf28Inv(RSboxAffineTransform(x));
+    }
+    return ret;
+#elif UAES_SBOX_OPTION == 1
+    static const uint8_t RSBOX[256] = {
+        0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e,
+        0x81, 0xf3, 0xd7, 0xfb, 0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87,
+        0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb, 0x54, 0x7b, 0x94, 0x32,
+        0xa6, 0xc2, 0x23, 0x3d, 0xee, 0x4c, 0x95, 0x0b, 0x42, 0xfa, 0xc3, 0x4e,
+        0x08, 0x2e, 0xa1, 0x66, 0x28, 0xd9, 0x24, 0xb2, 0x76, 0x5b, 0xa2, 0x49,
+        0x6d, 0x8b, 0xd1, 0x25, 0x72, 0xf8, 0xf6, 0x64, 0x86, 0x68, 0x98, 0x16,
+        0xd4, 0xa4, 0x5c, 0xcc, 0x5d, 0x65, 0xb6, 0x92, 0x6c, 0x70, 0x48, 0x50,
+        0xfd, 0xed, 0xb9, 0xda, 0x5e, 0x15, 0x46, 0x57, 0xa7, 0x8d, 0x9d, 0x84,
+        0x90, 0xd8, 0xab, 0x00, 0x8c, 0xbc, 0xd3, 0x0a, 0xf7, 0xe4, 0x58, 0x05,
+        0xb8, 0xb3, 0x45, 0x06, 0xd0, 0x2c, 0x1e, 0x8f, 0xca, 0x3f, 0x0f, 0x02,
+        0xc1, 0xaf, 0xbd, 0x03, 0x01, 0x13, 0x8a, 0x6b, 0x3a, 0x91, 0x11, 0x41,
+        0x4f, 0x67, 0xdc, 0xea, 0x97, 0xf2, 0xcf, 0xce, 0xf0, 0xb4, 0xe6, 0x73,
+        0x96, 0xac, 0x74, 0x22, 0xe7, 0xad, 0x35, 0x85, 0xe2, 0xf9, 0x37, 0xe8,
+        0x1c, 0x75, 0xdf, 0x6e, 0x47, 0xf1, 0x1a, 0x71, 0x1d, 0x29, 0xc5, 0x89,
+        0x6f, 0xb7, 0x62, 0x0e, 0xaa, 0x18, 0xbe, 0x1b, 0xfc, 0x56, 0x3e, 0x4b,
+        0xc6, 0xd2, 0x79, 0x20, 0x9a, 0xdb, 0xc0, 0xfe, 0x78, 0xcd, 0x5a, 0xf4,
+        0x1f, 0xdd, 0xa8, 0x33, 0x88, 0x07, 0xc7, 0x31, 0xb1, 0x12, 0x10, 0x59,
+        0x27, 0x80, 0xec, 0x5f, 0x60, 0x51, 0x7f, 0xa9, 0x19, 0xb5, 0x4a, 0x0d,
+        0x2d, 0xe5, 0x7a, 0x9f, 0x93, 0xc9, 0x9c, 0xef, 0xa0, 0xe0, 0x3b, 0x4d,
+        0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61,
+        0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63,
+        0x55, 0x21, 0x0c, 0x7d
+    };
+    return RSBOX[x];
+#elif UAES_SBOX_OPTION == 2
+    return s_rsbox[x];
+#else
+#error "Invalid UAES_SBOX_OPTION"
+#endif // UAES_SBOX_OPTION
+}
+#endif // ENABLE_INV_CIPHER
 
 #if UAES_SBOX_OPTION == 0
 // Compute a / b in GF(2^8), and return the quotient and remainder.
@@ -1212,133 +1768,6 @@ static uint8_t RSboxAffineTransform(uint8_t x)
     uint16_t sum = r1 ^ r3 ^ r6;
     return (uint8_t)sum ^ (uint8_t)(sum >> 8u) ^ 0x05u;
 }
-#endif
-
-#if ENABLE_INV_CIPHER
-// The main function that decrypts the CipherText.
-static void InvCipher(const UAES_AES_Ctx_t *ctx,
-                      const uint8_t input[16u],
-                      uint8_t output[16u])
-{
-    State_t state;
-    DataToState(input, state);
-
-#if UAES_STORE_ROUND_KEY_IN_CTX == 0
-    RoundKey_t round_key;
-    InitRoundKey(ctx, &round_key);
-#endif
-
-    // It is 10 for 128-bit key, 12 for 192-bit key, and 14 for 256-bit key.
-    uint8_t num_rounds = ctx->keysize_word + 6u;
-    // The decryption process is the reverse of encrypting process.
-    for (uint8_t round = num_rounds; round > 0u; --round) {
-#if UAES_STORE_ROUND_KEY_IN_CTX
-        AddRoundKey(ctx, round, state);
-#else
-        AddRoundKey(ctx, round, state, &round_key);
-#endif
-        if (round < num_rounds) {
-            InvMixColumns(state);
-        }
-        InvShiftRows(state);
-        InvSubBytes(state);
-    }
-#if UAES_STORE_ROUND_KEY_IN_CTX
-    AddRoundKey(ctx, 0, state);
-#else
-    // Add the First round key as the last step
-    AddRoundKey(ctx, 0, state, &round_key);
-#endif
-    StateToData(state, output);
-}
-
-// Reverses the MixColumns step in the Cipher.
-static void InvMixColumns(State_t state)
-{
-    uint32_t a[4u];
-    for (uint8_t i = 0u; i < 4u; ++i) {
-        a[i] = state[i];
-    }
-    for (uint8_t i = 0u; i < 4u; ++i) {
-        state[i] = Multiply(a[i], 0x0e);
-        state[i] ^= Multiply(a[(i + 1u) & 3u], 0x0b);
-        state[i] ^= Multiply(a[(i + 2u) & 3u], 0x0d);
-        state[i] ^= Multiply(a[(i + 3u) & 3u], 0x09);
-    }
-}
-
-// Reverses the SubBytes step in the Cipher.
-static void InvSubBytes(State_t state)
-{
-    state[0] = InvSubWord(state[0]);
-    state[1] = InvSubWord(state[1]);
-    state[2] = InvSubWord(state[2]);
-    state[3] = InvSubWord(state[3]);
-}
-
-// Reverse of SubByte()
-static uint8_t InvSubByte(uint8_t x)
-{
-#if UAES_SBOX_OPTION == 0
-    uint8_t ret;
-    if (x == 0x63u) {
-        ret = 0u;
-    } else {
-        ret = Gf28Inv(RSboxAffineTransform(x));
-    }
-    return ret;
-#elif UAES_SBOX_OPTION == 1
-    static const uint8_t RSBOX[256] = {
-        0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e,
-        0x81, 0xf3, 0xd7, 0xfb, 0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87,
-        0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb, 0x54, 0x7b, 0x94, 0x32,
-        0xa6, 0xc2, 0x23, 0x3d, 0xee, 0x4c, 0x95, 0x0b, 0x42, 0xfa, 0xc3, 0x4e,
-        0x08, 0x2e, 0xa1, 0x66, 0x28, 0xd9, 0x24, 0xb2, 0x76, 0x5b, 0xa2, 0x49,
-        0x6d, 0x8b, 0xd1, 0x25, 0x72, 0xf8, 0xf6, 0x64, 0x86, 0x68, 0x98, 0x16,
-        0xd4, 0xa4, 0x5c, 0xcc, 0x5d, 0x65, 0xb6, 0x92, 0x6c, 0x70, 0x48, 0x50,
-        0xfd, 0xed, 0xb9, 0xda, 0x5e, 0x15, 0x46, 0x57, 0xa7, 0x8d, 0x9d, 0x84,
-        0x90, 0xd8, 0xab, 0x00, 0x8c, 0xbc, 0xd3, 0x0a, 0xf7, 0xe4, 0x58, 0x05,
-        0xb8, 0xb3, 0x45, 0x06, 0xd0, 0x2c, 0x1e, 0x8f, 0xca, 0x3f, 0x0f, 0x02,
-        0xc1, 0xaf, 0xbd, 0x03, 0x01, 0x13, 0x8a, 0x6b, 0x3a, 0x91, 0x11, 0x41,
-        0x4f, 0x67, 0xdc, 0xea, 0x97, 0xf2, 0xcf, 0xce, 0xf0, 0xb4, 0xe6, 0x73,
-        0x96, 0xac, 0x74, 0x22, 0xe7, 0xad, 0x35, 0x85, 0xe2, 0xf9, 0x37, 0xe8,
-        0x1c, 0x75, 0xdf, 0x6e, 0x47, 0xf1, 0x1a, 0x71, 0x1d, 0x29, 0xc5, 0x89,
-        0x6f, 0xb7, 0x62, 0x0e, 0xaa, 0x18, 0xbe, 0x1b, 0xfc, 0x56, 0x3e, 0x4b,
-        0xc6, 0xd2, 0x79, 0x20, 0x9a, 0xdb, 0xc0, 0xfe, 0x78, 0xcd, 0x5a, 0xf4,
-        0x1f, 0xdd, 0xa8, 0x33, 0x88, 0x07, 0xc7, 0x31, 0xb1, 0x12, 0x10, 0x59,
-        0x27, 0x80, 0xec, 0x5f, 0x60, 0x51, 0x7f, 0xa9, 0x19, 0xb5, 0x4a, 0x0d,
-        0x2d, 0xe5, 0x7a, 0x9f, 0x93, 0xc9, 0x9c, 0xef, 0xa0, 0xe0, 0x3b, 0x4d,
-        0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61,
-        0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63,
-        0x55, 0x21, 0x0c, 0x7d
-    };
-    return RSBOX[x];
-#elif UAES_SBOX_OPTION == 2
-    return s_rsbox[x];
-#else
-#error "Invalid UAES_SBOX_OPTION"
-#endif // UAES_SBOX_OPTION
-}
-
-// Reverses the SubWord step in the Cipher.
-static uint32_t InvSubWord(uint32_t x)
-{
-    uint32_t tmp = 0u;
-    for (uint8_t i = 0u; i <= 24u; i += 8u) {
-        tmp |= (uint32_t)InvSubByte((uint8_t)(x >> i)) << i;
-    }
-    return tmp;
-}
-
-// Reverses the ShiftRows step in the Cipher.
-static void InvShiftRows(State_t state)
-{
-    // No change on first row
-    state[1] = (state[1] << 8u) | (state[1] >> 24u);
-    state[2] = (state[2] << 16u) | (state[2] >> 16u);
-    state[3] = (state[3] << 24u) | (state[3] >> 8u);
-}
-
 #endif
 
 #if (UAES_ENABLE_CTR != 0) || (UAES_ENABLE_CCM != 0) || (UAES_ENABLE_GCM != 0)
