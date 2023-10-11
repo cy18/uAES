@@ -37,9 +37,7 @@
 // Each uint32 represents a row in the matrix.
 // In each uint32, the LSB is the first element in the row, and the MSB is the
 // last. In other words, the bytes are stored in little endian order in uint32.
-typedef struct {
-    uint32_t data[4];
-} State_t;
+typedef uint32_t State_t[4];
 
 #if UAES_STORE_ROUND_KEY_IN_CTX == 0
 // Store the necessary information for generating round key.
@@ -53,12 +51,12 @@ typedef struct {
 static void Cipher(const UAES_AES_Ctx_t *ctx,
                    const uint8_t input[16u],
                    uint8_t output[16u]);
-static void DataToState(const uint8_t data[16u], State_t *state);
-static void StateToData(const State_t *state, uint8_t data[16u]);
-static void SubBytes(State_t *state);
+static void DataToState(const uint8_t data[16u], State_t state);
+static void StateToData(const State_t state, uint8_t data[16u]);
+static void SubBytes(State_t state);
 static uint32_t SubWord(uint32_t x);
-static void ShiftRows(State_t *state);
-static void MixColumns(State_t *state);
+static void ShiftRows(State_t state);
+static void MixColumns(State_t state);
 static uint32_t Times2(uint32_t x);
 static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len);
 
@@ -66,11 +64,11 @@ static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len);
 static void ExpandRoundKey(UAES_AES_Ctx_t *ctx);
 static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
                         uint8_t round,
-                        State_t *state);
+                        State_t state);
 #else
 static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
                         uint8_t round,
-                        State_t *state,
+                        State_t state,
                         RoundKey_t *round_key);
 static void InitRoundKey(const UAES_AES_Ctx_t *ctx, RoundKey_t *round_key);
 static uint32_t GetRoundKey(const UAES_AES_Ctx_t *ctx,
@@ -113,11 +111,11 @@ static uint8_t RSboxAffineTransform(uint8_t x);
 static void InvCipher(const UAES_AES_Ctx_t *ctx,
                       const uint8_t input[16u],
                       uint8_t output[16u]);
-static void InvMixColumns(State_t *state);
-static void InvSubBytes(State_t *state);
+static void InvMixColumns(State_t state);
+static void InvSubBytes(State_t state);
 static uint8_t InvSubByte(uint8_t x);
 static uint32_t InvSubWord(uint32_t x);
-static void InvShiftRows(State_t *state);
+static void InvShiftRows(State_t state);
 #endif
 
 #if (UAES_ENABLE_CTR != 0) || (UAES_ENABLE_CCM != 0) || (UAES_ENABLE_GCM != 0)
@@ -769,16 +767,16 @@ static void Cipher(const UAES_AES_Ctx_t *ctx,
                    uint8_t output[16u])
 {
     State_t state;
-    DataToState(input, &state);
+    DataToState(input, state);
 
 #if UAES_STORE_ROUND_KEY_IN_CTX
     // Add the First round key to the state before starting the rounds.
-    AddRoundKey(ctx, 0, &state);
+    AddRoundKey(ctx, 0, state);
 #else
     RoundKey_t round_key;
     InitRoundKey(ctx, &round_key);
     // Add the First round key to the state before starting the rounds.
-    AddRoundKey(ctx, 0, &state, &round_key);
+    AddRoundKey(ctx, 0, state, &round_key);
 #endif
 
     // There are NUM_ROUNDS rounds.
@@ -787,52 +785,52 @@ static void Cipher(const UAES_AES_Ctx_t *ctx,
     // It is 10 for 128-bit key, 12 for 192-bit key, and 14 for 256-bit key.
     uint8_t num_rounds = ctx->keysize_word + 6u;
     for (uint8_t round = 1u; round <= num_rounds; ++round) {
-        SubBytes(&state);
-        ShiftRows(&state);
+        SubBytes(state);
+        ShiftRows(state);
         if (round < num_rounds) {
-            MixColumns(&state);
+            MixColumns(state);
         }
 #if UAES_STORE_ROUND_KEY_IN_CTX
-        AddRoundKey(ctx, round, &state);
+        AddRoundKey(ctx, round, state);
 #else
-        AddRoundKey(ctx, round, &state, &round_key);
+        AddRoundKey(ctx, round, state, &round_key);
 #endif
     }
-    StateToData(&state, output);
+    StateToData(state, output);
 }
 
 // Store the 4x4 bytes AES cipher matrix by 4 uint32.
 // To make the best use of 32-bit CPU, each uint32 represents a row in the
 // matrix.
-static void DataToState(const uint8_t data[16u], State_t *state)
+static void DataToState(const uint8_t data[16u], State_t state)
 {
     for (uint8_t i = 0u; i < 4u; ++i) {
-        state->data[i] = 0u;
+        state[i] = 0u;
         for (uint8_t j = 0u; j < 4u; ++j) {
             uint32_t shift = (uint32_t)j * 8u;
-            state->data[i] |= ((uint32_t)data[i + (j * 4u)]) << shift;
+            state[i] |= ((uint32_t)data[i + (j * 4u)]) << shift;
         }
     }
 }
 
 // Reverse of DataToState()
-static void StateToData(const State_t *state, uint8_t data[16u])
+static void StateToData(const State_t state, uint8_t data[16u])
 {
     for (uint8_t i = 0u; i < 4u; ++i) {
         for (uint8_t j = 0u; j < 4u; ++j) {
             uint32_t shift = (uint32_t)j * 8u;
-            data[i + (j * 4u)] = (uint8_t)((state->data[i] >> shift) & 0xFFu);
+            data[i + (j * 4u)] = (uint8_t)((state[i] >> shift) & 0xFFu);
         }
     }
 }
 
 // Substitutes the whole matrix with values in the S-box.
-static void SubBytes(State_t *state)
+static void SubBytes(State_t state)
 {
-    state->data[0] = SubWord(state->data[0]);
-    state->data[1] = SubWord(state->data[1]);
-    state->data[2] = SubWord(state->data[2]);
-    state->data[3] = SubWord(state->data[3]);
+    state[0] = SubWord(state[0]);
+    state[1] = SubWord(state[1]);
+    state[2] = SubWord(state[2]);
+    state[3] = SubWord(state[3]);
 }
 
 // Substitutes each byte in the word with values in the S-box.
@@ -849,33 +847,33 @@ static uint32_t SubWord(uint32_t x)
 // offset. Offset = Row number. So the first row is not shifted.
 // Since the data is stored in little endian order, the shift direction is
 // reversed.
-static void ShiftRows(State_t *state)
+static void ShiftRows(State_t state)
 {
     // No change on first row
-    state->data[1] = (state->data[1] >> 8u) | (state->data[1] << 24u);
-    state->data[2] = (state->data[2] >> 16u) | (state->data[2] << 16u);
-    state->data[3] = (state->data[3] >> 24u) | (state->data[3] << 8u);
+    state[1] = (state[1] >> 8u) | (state[1] << 24u);
+    state[2] = (state[2] >> 16u) | (state[2] << 16u);
+    state[3] = (state[3] >> 24u) | (state[3] << 8u);
 }
 
 // Mixes the columns of the state matrix.
 // Since most operations are bitwise, the four columns are mixed at the same
 // time to make the best use of 32-bit CPU.
-static void MixColumns(State_t *state)
+static void MixColumns(State_t state)
 {
     uint32_t a[4];
     uint32_t b[4];
-    a[0] = state->data[0];
-    a[1] = state->data[1];
-    a[2] = state->data[2];
-    a[3] = state->data[3];
+    a[0] = state[0];
+    a[1] = state[1];
+    a[2] = state[2];
+    a[3] = state[3];
     b[0] = Times2(a[0]);
     b[1] = Times2(a[1]);
     b[2] = Times2(a[2]);
     b[3] = Times2(a[3]);
-    state->data[0] = b[0] ^ a[3] ^ a[2] ^ b[1] ^ a[1];
-    state->data[1] = b[1] ^ a[0] ^ a[3] ^ b[2] ^ a[2];
-    state->data[2] = b[2] ^ a[1] ^ a[0] ^ b[3] ^ a[3];
-    state->data[3] = b[3] ^ a[2] ^ a[1] ^ b[0] ^ a[0];
+    state[0] = b[0] ^ a[3] ^ a[2] ^ b[1] ^ a[1];
+    state[1] = b[1] ^ a[0] ^ a[3] ^ b[2] ^ a[2];
+    state[2] = b[2] ^ a[1] ^ a[0] ^ b[3] ^ a[3];
+    state[3] = b[3] ^ a[2] ^ a[1] ^ b[0] ^ a[0];
 }
 
 // Multiply each byte in the word by 2 in the field GF(2^8).
@@ -929,9 +927,7 @@ static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len)
 #if UAES_STORE_ROUND_KEY_IN_CTX
 // This function adds the round key to state.
 // The round key is added to the state by an XOR function.
-static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
-                        uint8_t round,
-                        State_t *state)
+static void AddRoundKey(const UAES_AES_Ctx_t *ctx, uint8_t round, State_t state)
 {
     uint8_t key_start = (uint8_t)(round * 4u);
     for (uint8_t i = 0u; i < 4u; ++i) {
@@ -939,7 +935,7 @@ static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
         uint32_t shift = (uint32_t)i * 8u;
         for (uint8_t j = 0u; j < 4u; ++j) {
             uint32_t shift2 = (uint32_t)j * 8u;
-            state->data[j] ^= ((ki >> shift2) & 0xFFu) << shift;
+            state[j] ^= ((ki >> shift2) & 0xFFu) << shift;
         }
     }
 }
@@ -976,7 +972,7 @@ static void ExpandRoundKey(UAES_AES_Ctx_t *ctx)
 // The round key is added to the state by an XOR function.
 static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
                         uint8_t round,
-                        State_t *state,
+                        State_t state,
                         RoundKey_t *round_key)
 {
     uint8_t key_start = (uint8_t)(round * 4u);
@@ -985,7 +981,7 @@ static void AddRoundKey(const UAES_AES_Ctx_t *ctx,
         uint32_t shift = (uint32_t)i * 8u;
         for (uint8_t j = 0u; j < 4u; ++j) {
             uint32_t shift2 = (uint32_t)j * 8u;
-            state->data[j] ^= ((ki >> shift2) & 0xFFu) << shift;
+            state[j] ^= ((ki >> shift2) & 0xFFu) << shift;
         }
     }
 }
@@ -1225,7 +1221,7 @@ static void InvCipher(const UAES_AES_Ctx_t *ctx,
                       uint8_t output[16u])
 {
     State_t state;
-    DataToState(input, &state);
+    DataToState(input, state);
 
 #if UAES_STORE_ROUND_KEY_IN_CTX == 0
     RoundKey_t round_key;
@@ -1237,47 +1233,47 @@ static void InvCipher(const UAES_AES_Ctx_t *ctx,
     // The decryption process is the reverse of encrypting process.
     for (uint8_t round = num_rounds; round > 0u; --round) {
 #if UAES_STORE_ROUND_KEY_IN_CTX
-        AddRoundKey(ctx, round, &state);
+        AddRoundKey(ctx, round, state);
 #else
-        AddRoundKey(ctx, round, &state, &round_key);
+        AddRoundKey(ctx, round, state, &round_key);
 #endif
         if (round < num_rounds) {
-            InvMixColumns(&state);
+            InvMixColumns(state);
         }
-        InvShiftRows(&state);
-        InvSubBytes(&state);
+        InvShiftRows(state);
+        InvSubBytes(state);
     }
 #if UAES_STORE_ROUND_KEY_IN_CTX
-    AddRoundKey(ctx, 0, &state);
+    AddRoundKey(ctx, 0, state);
 #else
     // Add the First round key as the last step
-    AddRoundKey(ctx, 0, &state, &round_key);
+    AddRoundKey(ctx, 0, state, &round_key);
 #endif
-    StateToData(&state, output);
+    StateToData(state, output);
 }
 
 // Reverses the MixColumns step in the Cipher.
-static void InvMixColumns(State_t *state)
+static void InvMixColumns(State_t state)
 {
     uint32_t a[4u];
     for (uint8_t i = 0u; i < 4u; ++i) {
-        a[i] = state->data[i];
+        a[i] = state[i];
     }
     for (uint8_t i = 0u; i < 4u; ++i) {
-        state->data[i] = Multiply(a[i], 0x0e);
-        state->data[i] ^= Multiply(a[(i + 1u) & 3u], 0x0b);
-        state->data[i] ^= Multiply(a[(i + 2u) & 3u], 0x0d);
-        state->data[i] ^= Multiply(a[(i + 3u) & 3u], 0x09);
+        state[i] = Multiply(a[i], 0x0e);
+        state[i] ^= Multiply(a[(i + 1u) & 3u], 0x0b);
+        state[i] ^= Multiply(a[(i + 2u) & 3u], 0x0d);
+        state[i] ^= Multiply(a[(i + 3u) & 3u], 0x09);
     }
 }
 
 // Reverses the SubBytes step in the Cipher.
-static void InvSubBytes(State_t *state)
+static void InvSubBytes(State_t state)
 {
-    state->data[0] = InvSubWord(state->data[0]);
-    state->data[1] = InvSubWord(state->data[1]);
-    state->data[2] = InvSubWord(state->data[2]);
-    state->data[3] = InvSubWord(state->data[3]);
+    state[0] = InvSubWord(state[0]);
+    state[1] = InvSubWord(state[1]);
+    state[2] = InvSubWord(state[2]);
+    state[3] = InvSubWord(state[3]);
 }
 
 // Reverse of SubByte()
@@ -1335,12 +1331,12 @@ static uint32_t InvSubWord(uint32_t x)
 }
 
 // Reverses the ShiftRows step in the Cipher.
-static void InvShiftRows(State_t *state)
+static void InvShiftRows(State_t state)
 {
     // No change on first row
-    state->data[1] = (state->data[1] << 8u) | (state->data[1] >> 24u);
-    state->data[2] = (state->data[2] << 16u) | (state->data[2] >> 16u);
-    state->data[3] = (state->data[3] << 24u) | (state->data[3] >> 8u);
+    state[1] = (state[1] << 8u) | (state[1] >> 24u);
+    state[2] = (state[2] << 16u) | (state[2] >> 16u);
+    state[3] = (state[3] << 24u) | (state[3] >> 8u);
 }
 
 #endif
