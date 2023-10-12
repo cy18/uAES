@@ -38,7 +38,7 @@
 #endif
 
 #ifndef EXPECTED_TEST_NUM
-#define EXPECTED_TEST_NUM 55606u
+#define EXPECTED_TEST_NUM 61082u
 #endif
 
 typedef enum {
@@ -107,6 +107,11 @@ static void TestEcb(TestCase_t *p_test);
 static void TestEcbMct(TestCase_t *p_test);
 static void TestCbc(TestCase_t *p_test);
 static void TestCbcMct(TestCase_t *p_test);
+static void TestCfb(TestCase_t *p_test, uint8_t segment_size);
+static void TestCfb8(TestCase_t *p_test);
+static void TestCfb128(TestCase_t *p_test);
+static void TestCfb8Mct(TestCase_t *p_test);
+static void TestCfb128Mct(TestCase_t *p_test);
 static void TestGcmEncrypt(TestCase_t *p_test);
 static void TestGcmDecrypt(TestCase_t *p_test);
 static void TestCcmEncrypt(TestCase_t *p_test);
@@ -735,6 +740,136 @@ static void TestCbcMct(TestCase_t *p_test)
     }
 }
 
+static void TestCfb(TestCase_t *p_test, uint8_t segment_size)
+{
+    uint8_t result[1024u];
+    if (!CheckInput(p_test, true, true, true, false, true, false)) {
+        return;
+    }
+    UAES_CFB_SimpleEncrypt(segment_size,
+                           p_test->key,
+                           p_test->key_len,
+                           p_test->iv,
+                           p_test->plain_text,
+                           result,
+                           p_test->plain_text_len);
+    (void)CheckCipherText(p_test, result);
+    UAES_CFB_SimpleDecrypt(segment_size,
+                           p_test->key,
+                           p_test->key_len,
+                           p_test->iv,
+                           p_test->cipher_text,
+                           result,
+                           p_test->cipher_text_len);
+    (void)CheckPlainText(p_test, result);
+}
+
+static void TestCfb8(TestCase_t *p_test)
+{
+    TestCfb(p_test, 8u);
+}
+
+static void TestCfb128(TestCase_t *p_test)
+{
+    TestCfb(p_test, 128u);
+}
+
+static void TestCfb8Mct(TestCase_t *p_test)
+{
+    if (!CheckInput(p_test, true, true, true, false, true, false)) {
+        return;
+    }
+    if ((p_test->plain_text_len != 1u) || (p_test->cipher_text_len != 1u)) {
+        p_test->error_msg = "data length must be 1 for CFB8 MCT";
+    }
+    if (p_test->type == TYPE_ENCRYPT) {
+        UAES_CFB_Ctx_t ctx;
+        static uint8_t ct[1000u];
+        uint8_t pt = p_test->plain_text[0];
+        UAES_CFB_Init(&ctx, 8u, p_test->key, p_test->key_len, p_test->iv);
+        for (size_t i = 0u; i < 1000u; ++i) {
+            UAES_CFB_Encrypt(&ctx, &pt, &ct[i], 1u);
+            if (i < 16u) {
+                pt = p_test->iv[i];
+            } else {
+                pt = ct[i - 16u];
+            }
+        }
+        CheckCipherText(p_test, &ct[999u]);
+    } else if (p_test->type == TYPE_DECRYPT) {
+        UAES_CFB_Ctx_t ctx;
+        static uint8_t pt[1000u];
+        uint8_t ct = p_test->cipher_text[0];
+        UAES_CFB_Init(&ctx, 8u, p_test->key, p_test->key_len, p_test->iv);
+        for (size_t i = 0u; i < 1000u; ++i) {
+            UAES_CFB_Decrypt(&ctx, &ct, &pt[i], 1u);
+            if (i < 16u) {
+                ct = p_test->iv[i];
+            } else {
+                ct = pt[i - 16u];
+            }
+        }
+        CheckPlainText(p_test, &pt[999u]);
+    } else {
+        p_test->error_msg = "Test type unspecified for CFB8 MCT";
+    }
+}
+
+static void TestCfb128Mct(TestCase_t *p_test)
+{
+    if (!CheckInput(p_test, true, true, true, false, true, false)) {
+        return;
+    }
+    if ((p_test->plain_text_len != 16u) || (p_test->cipher_text_len != 16u)) {
+        p_test->error_msg = "data length must be 16 for CFB128 MCT";
+    }
+    if (p_test->type == TYPE_ENCRYPT) {
+        UAES_CFB_Ctx_t ctx;
+        uint8_t ct[16u];
+        uint8_t pt[16u];
+        uint8_t pt_new[16u];
+        for (size_t i = 0u; i < 1000u; ++i) {
+            if (i == 0u) {
+                UAES_CFB_Init(&ctx,
+                              128u,
+                              p_test->key,
+                              p_test->key_len,
+                              p_test->iv);
+                UAES_CFB_Encrypt(&ctx, p_test->plain_text, ct, 16u);
+                memcpy(pt, p_test->iv, 16u);
+            } else {
+                memcpy(pt_new, ct, 16u);
+                UAES_CFB_Encrypt(&ctx, pt, ct, 16u);
+                memcpy(pt, pt_new, 16u);
+            }
+        }
+        CheckCipherText(p_test, ct);
+    } else if (p_test->type == TYPE_DECRYPT) {
+        UAES_CFB_Ctx_t ctx;
+        uint8_t ct[16u];
+        uint8_t pt[16u];
+        uint8_t ct_new[16u];
+        for (size_t i = 0u; i < 1000u; ++i) {
+            if (i == 0u) {
+                UAES_CFB_Init(&ctx,
+                              128u,
+                              p_test->key,
+                              p_test->key_len,
+                              p_test->iv);
+                UAES_CFB_Decrypt(&ctx, p_test->cipher_text, pt, 16u);
+                memcpy(ct, p_test->iv, 16u);
+            } else {
+                memcpy(ct_new, pt, 16u);
+                UAES_CFB_Decrypt(&ctx, ct, pt, 16u);
+                memcpy(ct, ct_new, 16u);
+            }
+        }
+        CheckPlainText(p_test, pt);
+    } else {
+        p_test->error_msg = "Test type unspecified for CFB128 MCT";
+    }
+}
+
 static void TestGcmEncrypt(TestCase_t *p_test)
 {
     uint8_t result[1024u];
@@ -925,6 +1060,80 @@ int main(void)
          i < sizeof(RSP_LIST_CBC_MCT) / sizeof(RSP_LIST_CBC_MCT[0]);
          i++) {
         DoTests(test_func, test_name, RSP_LIST_CBC_MCT[i]);
+    }
+    // CFB8
+    test_func = TestCfb8;
+    test_name = "CFB8";
+    const char *RSP_LIST_CFB8[] = {
+        "nist_data/aesmmt/CFB8MMT128.rsp",
+        "nist_data/aesmmt/CFB8MMT192.rsp",
+        "nist_data/aesmmt/CFB8MMT256.rsp",
+        "nist_data/KAT_AES/CFB8GFSbox128.rsp",
+        "nist_data/KAT_AES/CFB8GFSbox192.rsp",
+        "nist_data/KAT_AES/CFB8GFSbox256.rsp",
+        "nist_data/KAT_AES/CFB8KeySbox128.rsp",
+        "nist_data/KAT_AES/CFB8KeySbox192.rsp",
+        "nist_data/KAT_AES/CFB8KeySbox256.rsp",
+        "nist_data/KAT_AES/CFB8VarKey128.rsp",
+        "nist_data/KAT_AES/CFB8VarKey192.rsp",
+        "nist_data/KAT_AES/CFB8VarKey256.rsp",
+        "nist_data/KAT_AES/CFB8VarTxt128.rsp",
+        "nist_data/KAT_AES/CFB8VarTxt192.rsp",
+        "nist_data/KAT_AES/CFB8VarTxt256.rsp",
+    };
+    for (size_t i = 0; i < sizeof(RSP_LIST_CFB8) / sizeof(RSP_LIST_CFB8[0]);
+         i++) {
+        DoTests(test_func, test_name, RSP_LIST_CFB8[i]);
+    }
+    // CFB8 MCT
+    test_func = TestCfb8Mct;
+    test_name = "CFB8 MCT";
+    const char *RSP_LIST_CFB8_MCT[] = {
+        "nist_data/aesmct/CFB8MCT128.rsp",
+        "nist_data/aesmct/CFB8MCT192.rsp",
+        "nist_data/aesmct/CFB8MCT256.rsp",
+    };
+    for (size_t i = 0;
+         i < sizeof(RSP_LIST_CFB8_MCT) / sizeof(RSP_LIST_CFB8_MCT[0]);
+         i++) {
+        DoTests(test_func, test_name, RSP_LIST_CFB8_MCT[i]);
+    }
+    // CFB128
+    test_func = TestCfb128;
+    test_name = "CFB128";
+    const char *RSP_LIST_CFB128[] = {
+        "nist_data/aesmmt/CFB128MMT128.rsp",
+        "nist_data/aesmmt/CFB128MMT192.rsp",
+        "nist_data/aesmmt/CFB128MMT256.rsp",
+        "nist_data/KAT_AES/CFB128GFSbox128.rsp",
+        "nist_data/KAT_AES/CFB128GFSbox192.rsp",
+        "nist_data/KAT_AES/CFB128GFSbox256.rsp",
+        "nist_data/KAT_AES/CFB128KeySbox128.rsp",
+        "nist_data/KAT_AES/CFB128KeySbox192.rsp",
+        "nist_data/KAT_AES/CFB128KeySbox256.rsp",
+        "nist_data/KAT_AES/CFB128VarKey128.rsp",
+        "nist_data/KAT_AES/CFB128VarKey192.rsp",
+        "nist_data/KAT_AES/CFB128VarKey256.rsp",
+        "nist_data/KAT_AES/CFB128VarTxt128.rsp",
+        "nist_data/KAT_AES/CFB128VarTxt192.rsp",
+        "nist_data/KAT_AES/CFB128VarTxt256.rsp",
+    };
+    for (size_t i = 0; i < sizeof(RSP_LIST_CFB128) / sizeof(RSP_LIST_CFB128[0]);
+         i++) {
+        DoTests(test_func, test_name, RSP_LIST_CFB128[i]);
+    }
+    // CFB128 MCT
+    test_func = TestCfb128Mct;
+    test_name = "CFB128 MCT";
+    const char *RSP_LIST_CFB128_MCT[] = {
+        "nist_data/aesmct/CFB128MCT128.rsp",
+        "nist_data/aesmct/CFB128MCT192.rsp",
+        "nist_data/aesmct/CFB128MCT256.rsp",
+    };
+    for (size_t i = 0;
+         i < sizeof(RSP_LIST_CFB128_MCT) / sizeof(RSP_LIST_CFB128_MCT[0]);
+         i++) {
+        DoTests(test_func, test_name, RSP_LIST_CFB128_MCT[i]);
     }
     // GCM Encrypt
     test_func = TestGcmEncrypt;
