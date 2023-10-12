@@ -411,6 +411,97 @@ static void TestCfb(void)
 
 #endif // UAES_ENABLE_CFB
 
+#if UAES_ENABLE_CFB1
+
+static void TestCfb1Case(const uint8_t *KEY,
+                         size_t key_len,
+                         const uint8_t *IV,
+                         const char *PT,
+                         const char *CT)
+{
+    uint8_t bit_len = strlen(PT);
+    uint8_t pt[8u] = { 0u };
+    uint8_t ct[8u] = { 0u };
+    for (size_t i = 0u; i < bit_len; ++i) {
+        if (PT[i] == '1') {
+            pt[i / 8u] |= (1u << (7u - (i % 8u)));
+        }
+        if (CT[i] == '1') {
+            ct[i / 8u] |= (1u << (7u - (i % 8u)));
+        }
+    }
+    uint8_t result[8u];
+    UAES_CFB1_Ctx_t ctx;
+    // Test encrypt
+    UAES_CFB1_Init(&ctx, KEY, key_len, IV);
+    memset(result, 0u, sizeof(result));
+    UAES_CFB1_Encrypt(&ctx, pt, result, bit_len);
+    CheckData(ct, result, (bit_len + 7u) / 8u, "UAES_CFB1_Encrypt");
+    memset(result, 0u, sizeof(result));
+    UAES_CFB1_SimpleEncrypt(KEY, key_len, IV, pt, result, bit_len);
+    CheckData(ct, result, (bit_len + 7u) / 8u, "UAES_CFB1_SimpleEncrypt");
+    // Test decrypt
+    UAES_CFB1_Init(&ctx, KEY, key_len, IV);
+    memset(result, 0u, sizeof(result));
+    UAES_CFB1_Decrypt(&ctx, ct, result, bit_len);
+    CheckData(pt, result, (bit_len + 7u) / 8u, "UAES_CFB1_Decrypt");
+    memset(result, 0u, sizeof(result));
+    UAES_CFB1_SimpleDecrypt(KEY, key_len, IV, ct, result, bit_len);
+    CheckData(pt, result, (bit_len + 7u) / 8u, "UAES_CFB1_SimpleDecrypt");
+}
+
+static void TestCfb1(void)
+{
+#if UAES_ENABLE_128
+    const uint8_t KEY128[16] = {
+        0x68, 0xde, 0xdc, 0x2e, 0x02, 0x19, 0x4f, 0xb0,
+        0x34, 0x9d, 0xb1, 0xfa, 0x43, 0xec, 0x92, 0x32,
+    };
+    const uint8_t IV128[16] = {
+        0x56, 0x39, 0x91, 0x32, 0x41, 0x6f, 0x42, 0x65,
+        0x16, 0xe8, 0x33, 0xbf, 0xc7, 0xd7, 0x9b, 0x25,
+    };
+    const char PT128[] = "1100000011";
+    const char CT128[] = "0101110111";
+#endif
+#if UAES_ENABLE_192
+    const uint8_t KEY192[24] = {
+        0x7c, 0xb6, 0x26, 0xaa, 0x15, 0x9f, 0x92, 0x32, 0x5a, 0x77, 0x52, 0x5a,
+        0xea, 0xf4, 0x94, 0xaa, 0xfa, 0x07, 0xd6, 0xb7, 0x9a, 0x0e, 0x4b, 0xf7,
+    };
+    const uint8_t IV192[16] = {
+        0x06, 0x14, 0x37, 0x9d, 0xeb, 0xaa, 0xe2, 0x8e,
+        0x84, 0xe4, 0x6f, 0x7e, 0x2f, 0xb0, 0xda, 0x0a,
+    };
+    const char PT192[] = "1011110011";
+    const char CT192[] = "1000101011";
+#endif
+#if UAES_ENABLE_256
+    const uint8_t KEY256[32] = {
+        0x7d, 0xdb, 0xb0, 0xd8, 0x1a, 0x14, 0x15, 0xb7, 0x92, 0xae, 0x85,
+        0xee, 0x97, 0xe0, 0x67, 0x17, 0xea, 0xba, 0xa3, 0x4c, 0xce, 0xc0,
+        0xb5, 0xea, 0xbe, 0xd8, 0x00, 0x95, 0x5b, 0x66, 0x64, 0x7d,
+    };
+    const uint8_t IV256[16] = {
+        0x51, 0x69, 0x6c, 0xf4, 0x55, 0x31, 0xd0, 0xcc,
+        0x02, 0xd1, 0x3d, 0xe2, 0xe8, 0xe7, 0xe4, 0x74,
+    };
+    const char PT256[] = "1000000010";
+    const char CT256[] = "0100110111";
+#endif
+#if UAES_ENABLE_256
+    TestCfb1Case(KEY256, sizeof(KEY256), IV256, PT256, CT256);
+#endif
+#if UAES_ENABLE_192
+    TestCfb1Case(KEY192, sizeof(KEY192), IV192, PT192, CT192);
+#endif
+#if UAES_ENABLE_128
+    TestCfb1Case(KEY128, sizeof(KEY128), IV128, PT128, CT128);
+#endif
+}
+
+#endif // UAES_ENABLE_CFB1
+
 #if UAES_ENABLE_CTR
 
 static void TestCtrCase(const uint8_t *KEY,
@@ -1378,6 +1469,9 @@ void UAES_TestSimple(size_t *p_pass_num, size_t *p_fail_num)
 #endif
 #if UAES_ENABLE_CFB
     TestCfb();
+#endif
+#if UAES_ENABLE_CFB1
+    TestCfb1();
 #endif
 #if UAES_ENABLE_CTR
     TestCtr();
