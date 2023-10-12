@@ -72,6 +72,47 @@ foreach(STORE_ROUND_KEY_IN_CTX 0 1)
     endforeach()
 endforeach()
 
+# Run test_simple of each mode with only one mode enabled
+foreach(STORE_ROUND_KEY_IN_CTX 0 1)
+    foreach(SBOX_MODE 0 1 2)
+        foreach(U32BIT_MODE 0 1)
+            set(AES_MODES
+                ECB
+                CBC
+                CFB
+                CFB1
+                OFB
+                CTR
+                CCM
+                GCM
+            )
+
+            foreach(AES_MODE ${AES_MODES})
+                foreach(KEY_SIZE 128 192 256)
+                    set(name test_simple_${STORE_ROUND_KEY_IN_CTX}_${SBOX_MODE}_${U32BIT_MODE}_${AES_MODE}_${KEY_SIZE})
+                    add_executable(${name}
+                        ${CMAKE_CURRENT_LIST_DIR}/../uaes.c
+                        test_simple_main.c
+                        uaes_test_port_pc.c
+                        uaes_test_simple.c
+                    )
+                    target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../)
+                    target_compile_definitions(${name} PRIVATE
+                        UAES_DEFAULT_CONFIG=0
+                        UAES_STORE_ROUND_KEY_IN_CTX=${STORE_ROUND_KEY_IN_CTX}
+                        UAES_SBOX_MODE=${SBOX_MODE}
+                        UAES_32BIT_MODE=${U32BIT_MODE}
+                        UAES_ENABLE_${KEY_SIZE}=1
+                        UAES_ENABLE_${AES_MODE}=1
+                    )
+                    add_test(NAME ${name} COMMAND ${name})
+                    set_tests_properties(${name} PROPERTIES LABELS "simple")
+                endforeach()
+            endforeach()
+        endforeach()
+    endforeach()
+endforeach()
+
 # Test NIST
 add_executable(test_nist uaes_test_nist.c)
 target_link_libraries(test_nist uaes)

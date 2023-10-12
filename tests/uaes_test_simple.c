@@ -36,29 +36,6 @@
 static size_t s_pass_num = 0u;
 static size_t s_fail_num = 0u;
 
-static void CheckDataAndTag(const uint8_t *expected,
-                            const uint8_t *actual,
-                            size_t len,
-                            const uint8_t *expected_tag,
-                            const uint8_t *actual_tag,
-                            size_t tag_len,
-                            const char *msg)
-{
-    if (memcmp(expected, actual, len) != 0) {
-        UAES_TP_LogString("CheckDataAndTag failed:", msg);
-        UAES_TP_LogBytes("Expected data:", expected, len);
-        UAES_TP_LogBytes("  Actual data:", actual, len);
-        s_fail_num++;
-    } else if (memcmp(expected_tag, actual_tag, tag_len) != 0) {
-        UAES_TP_LogString("CheckDataAndTag failed:", msg);
-        UAES_TP_LogBytes("Expected tag:", expected_tag, tag_len);
-        UAES_TP_LogBytes("  Actual tag:", actual_tag, tag_len);
-        s_fail_num++;
-    } else {
-        s_pass_num++;
-    }
-}
-
 static void CheckData(const uint8_t *expected,
                       const uint8_t *actual,
                       size_t len,
@@ -73,6 +50,32 @@ static void CheckData(const uint8_t *expected,
         s_pass_num++;
     }
 }
+
+#if (UAES_ENABLE_CCM == 1) || (UAES_ENABLE_GCM == 1)
+static void CheckDataAndTag(const uint8_t *expected,
+                            const uint8_t *actual,
+                            size_t len,
+                            const uint8_t *expected_tag,
+                            const uint8_t *actual_tag,
+                            size_t tag_len,
+                            const char *msg)
+{
+    (void)CheckData; // Workaround for unused function warning
+    if (memcmp(expected, actual, len) != 0) {
+        UAES_TP_LogString("CheckDataAndTag failed:", msg);
+        UAES_TP_LogBytes("Expected data:", expected, len);
+        UAES_TP_LogBytes("  Actual data:", actual, len);
+        s_fail_num++;
+    } else if (memcmp(expected_tag, actual_tag, tag_len) != 0) {
+        UAES_TP_LogString("CheckDataAndTag failed:", msg);
+        UAES_TP_LogBytes("Expected tag:", expected_tag, tag_len);
+        UAES_TP_LogBytes("  Actual tag:", actual_tag, tag_len);
+        s_fail_num++;
+    } else {
+        s_pass_num++;
+    }
+}
+#endif
 
 #if UAES_ENABLE_ECB
 
