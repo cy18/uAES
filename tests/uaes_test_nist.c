@@ -37,13 +37,12 @@
 #define TEST_BASE_DIR "."
 #endif
 
-// The total number of tests can be found by counting all "Count" keywords
-// in all .rsp files. Since OFB is not supported yet, files with name
-// containing "OFB" are filtered out. For example:
-// find . -name "*.rsp" | grep -v "OFB" | xargs cat | grep -i "count" | wc -l
-// The result is 63820, i.e., there are 63820 tests in total.
+// The total number of tests can be found by counting all "Count" keywords in
+// all .rsp files. For example:
+//     `find . -name "*.rsp" | xargs cat | grep -i "count" | wc -l`
+// The result is 66558, which is the expected number of tests.
 #ifndef EXPECTED_TEST_NUM
-#define EXPECTED_TEST_NUM 63820u
+#define EXPECTED_TEST_NUM 66558u
 #endif
 
 typedef enum {
@@ -119,6 +118,8 @@ static void TestEcb(TestCase_t *p_test);
 static void TestEcbMct(TestCase_t *p_test);
 static void TestCbc(TestCase_t *p_test);
 static void TestCbcMct(TestCase_t *p_test);
+static void TestOfb(TestCase_t *p_test);
+static void TestOfbMct(TestCase_t *p_test);
 static void TestCfb1(TestCase_t *p_test);
 static void TestCfb1Mct(TestCase_t *p_test);
 static void TestCfb(TestCase_t *p_test, uint8_t segment_size);
@@ -807,6 +808,75 @@ static void TestCbcMct(TestCase_t *p_test)
     }
 }
 
+static void TestOfb(TestCase_t *p_test)
+{
+    uint8_t result[1024u];
+    if (!CheckInput(p_test, true, true, true, false, true, false)) {
+        return;
+    }
+    UAES_OFB_SimpleEncrypt(p_test->key,
+                           p_test->key_len,
+                           p_test->iv,
+                           p_test->plain_text,
+                           result,
+                           p_test->plain_text_len);
+    (void)CheckCipherText(p_test, result);
+    UAES_OFB_SimpleDecrypt(p_test->key,
+                           p_test->key_len,
+                           p_test->iv,
+                           p_test->cipher_text,
+                           result,
+                           p_test->cipher_text_len);
+    (void)CheckPlainText(p_test, result);
+}
+
+static void TestOfbMct(TestCase_t *p_test)
+{
+    if (!CheckInput(p_test, true, true, true, false, true, false)) {
+        return;
+    }
+    if ((p_test->plain_text_len != 16u) || (p_test->cipher_text_len != 16u)) {
+        p_test->error_msg = "data length must be 16 for OFB MCT";
+    }
+    if (p_test->type == TYPE_ENCRYPT) {
+        UAES_OFB_Ctx_t ctx;
+        uint8_t ct[16u];
+        uint8_t pt[16u];
+        uint8_t pt_new[16u];
+        for (size_t i = 0u; i < 1000u; ++i) {
+            if (i == 0u) {
+                UAES_OFB_Init(&ctx, p_test->key, p_test->key_len, p_test->iv);
+                UAES_OFB_Encrypt(&ctx, p_test->plain_text, ct, 16u);
+                memcpy(pt, p_test->iv, 16u);
+            } else {
+                memcpy(pt_new, ct, 16u);
+                UAES_OFB_Encrypt(&ctx, pt, ct, 16u);
+                memcpy(pt, pt_new, 16u);
+            }
+        }
+        CheckCipherText(p_test, ct);
+    } else if (p_test->type == TYPE_DECRYPT) {
+        UAES_OFB_Ctx_t ctx;
+        uint8_t ct[16u];
+        uint8_t pt[16u];
+        uint8_t ct_new[16u];
+        for (size_t i = 0u; i < 1000u; ++i) {
+            if (i == 0u) {
+                UAES_OFB_Init(&ctx, p_test->key, p_test->key_len, p_test->iv);
+                UAES_OFB_Decrypt(&ctx, p_test->cipher_text, pt, 16u);
+                memcpy(ct, p_test->iv, 16u);
+            } else {
+                memcpy(ct_new, pt, 16u);
+                UAES_OFB_Decrypt(&ctx, ct, pt, 16u);
+                memcpy(ct, ct_new, 16u);
+            }
+        }
+        CheckPlainText(p_test, pt);
+    } else {
+        p_test->error_msg = "Test type unspecified for CBC MCT";
+    }
+}
+
 static void TestCfb1(TestCase_t *p_test)
 {
     uint8_t result[1024u];
@@ -1218,6 +1288,43 @@ int main(void)
          i < sizeof(RSP_LIST_CBC_MCT) / sizeof(RSP_LIST_CBC_MCT[0]);
          i++) {
         DoTests(test_func, test_name, RSP_LIST_CBC_MCT[i]);
+    }
+    // OFB
+    test_func = TestOfb;
+    test_name = "OFB";
+    const char *RSP_LIST_OFB[] = {
+        "nist_data/aesmmt/OFBMMT128.rsp",
+        "nist_data/aesmmt/OFBMMT192.rsp",
+        "nist_data/aesmmt/OFBMMT256.rsp",
+        "nist_data/KAT_AES/OFBGFSbox128.rsp",
+        "nist_data/KAT_AES/OFBGFSbox192.rsp",
+        "nist_data/KAT_AES/OFBGFSbox256.rsp",
+        "nist_data/KAT_AES/OFBKeySbox128.rsp",
+        "nist_data/KAT_AES/OFBKeySbox192.rsp",
+        "nist_data/KAT_AES/OFBKeySbox256.rsp",
+        "nist_data/KAT_AES/OFBVarKey128.rsp",
+        "nist_data/KAT_AES/OFBVarKey192.rsp",
+        "nist_data/KAT_AES/OFBVarKey256.rsp",
+        "nist_data/KAT_AES/OFBVarTxt128.rsp",
+        "nist_data/KAT_AES/OFBVarTxt192.rsp",
+        "nist_data/KAT_AES/OFBVarTxt256.rsp",
+    };
+    for (size_t i = 0; i < sizeof(RSP_LIST_OFB) / sizeof(RSP_LIST_OFB[0]);
+         i++) {
+        DoTests(test_func, test_name, RSP_LIST_OFB[i]);
+    }
+    // OFB MCT
+    test_func = TestOfbMct;
+    test_name = "OFB";
+    const char *RSP_LIST_OFB_MCT[] = {
+        "nist_data/aesmct/OFBMCT128.rsp",
+        "nist_data/aesmct/OFBMCT192.rsp",
+        "nist_data/aesmct/OFBMCT256.rsp",
+    };
+    for (size_t i = 0;
+         i < sizeof(RSP_LIST_OFB_MCT) / sizeof(RSP_LIST_OFB_MCT[0]);
+         i++) {
+        DoTests(test_func, test_name, RSP_LIST_OFB_MCT[i]);
     }
     // CFB1
     test_func = TestCfb1;
