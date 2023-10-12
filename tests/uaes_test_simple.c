@@ -83,20 +83,18 @@ static void TestEcbCase(const uint8_t *KEY,
                         size_t data_len)
 {
     UAES_ECB_Ctx_t ctx;
+    // Encrypt
     UAES_ECB_Init(&ctx, KEY, key_len);
     uint8_t result[data_len];
-#if UAES_ENABLE_ECB_ENCRYPT
     UAES_ECB_Encrypt(&ctx, IN, result, data_len);
     CheckData(OUT, result, data_len, "UAES_ECB_Encrypt");
     UAES_ECB_SimpleEncrypt(KEY, key_len, IN, result, data_len);
+    // Decrypt
     CheckData(OUT, result, data_len, "UAES_ECB_SimpleEncrypt");
-#endif // UAES_ENABLE_ECB_ENCRYPT
-#if UAES_ENABLE_ECB_DECRYPT
     UAES_ECB_Decrypt(&ctx, OUT, result, data_len);
     CheckData(IN, result, data_len, "UAES_ECB_Decrypt");
     UAES_ECB_SimpleDecrypt(KEY, key_len, OUT, result, data_len);
     CheckData(IN, result, data_len, "UAES_ECB_SimpleDecrypt");
-#endif // UAES_ENABLE_ECB_DECRYPT
 }
 
 static void TestECB(void)
@@ -149,22 +147,20 @@ static void TestCbcCase(const uint8_t *KEY,
     (void)iv_len;
     UAES_CBC_Ctx_t ctx;
     uint8_t result[data_len];
-#if UAES_ENABLE_CBC_ENCRYPT
+    // Encrypt
     UAES_CBC_Init(&ctx, KEY, key_len, IV);
     (void)memcpy(result, IN, data_len);
     UAES_CBC_Encrypt(&ctx, result, result, data_len);
     CheckData(OUT, result, data_len, "UAES_CBC_Encrypt");
     UAES_CBC_SimpleEncrypt(KEY, key_len, IV, IN, result, data_len);
     CheckData(OUT, result, data_len, "UAES_CBC_SimpleEncrypt");
-#endif // UAES_ENABLE_CBC_ENCRYPT
-#if UAES_ENABLE_CBC_DECRYPT
+    // Decrypt
     UAES_CBC_Init(&ctx, KEY, key_len, IV);
     (void)memcpy(result, OUT, data_len);
     UAES_CBC_Decrypt(&ctx, result, result, data_len);
     CheckData(IN, result, data_len, "UAES_CBC_Decrypt");
     UAES_CBC_SimpleDecrypt(KEY, key_len, IV, OUT, result, data_len);
     CheckData(IN, result, data_len, "UAES_CBC_SimpleDecrypt");
-#endif // UAES_ENABLE_CBC_DECRYPT
 }
 
 static void TestCBC(void)

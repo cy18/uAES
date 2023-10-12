@@ -29,7 +29,7 @@
 
 #include <string.h>
 
-#if (UAES_ENABLE_ECB_DECRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0)
+#if (UAES_ENABLE_ECB != 0) || (UAES_ENABLE_CBC != 0)
 #define ENABLE_INV_CIPHER 1
 #else
 #define ENABLE_INV_CIPHER 0
@@ -254,9 +254,7 @@ void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx, const uint8_t *key, size_t key_len)
 {
     InitAesCtx(&ctx->aes_ctx, key, key_len);
 }
-#endif // UAES_ENABLE_ECB
 
-#if UAES_ENABLE_ECB_ENCRYPT
 void UAES_ECB_Encrypt(const UAES_ECB_Ctx_t *ctx,
                       const uint8_t *input,
                       uint8_t *output,
@@ -278,9 +276,6 @@ void UAES_ECB_SimpleEncrypt(const uint8_t *key,
     UAES_ECB_Encrypt(&ctx, input, output, data_len);
 }
 
-#endif // UAES_ENABLE_ECB_ENCRYPT
-
-#if UAES_ENABLE_ECB_DECRYPT
 void UAES_ECB_Decrypt(const UAES_ECB_Ctx_t *ctx,
                       const uint8_t *input,
                       uint8_t *output,
@@ -302,7 +297,7 @@ void UAES_ECB_SimpleDecrypt(const uint8_t *key,
     UAES_ECB_Decrypt(&ctx, input, output, data_len);
 }
 
-#endif // UAES_ENABLE_ECB_DECRYPT
+#endif // UAES_ENABLE_ECB
 
 #if UAES_ENABLE_CBC
 void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
@@ -313,9 +308,7 @@ void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
     InitAesCtx(&ctx->aes_ctx, key, key_len);
     (void)memcpy(ctx->iv, iv, sizeof(ctx->iv));
 }
-#endif // UAES_ENABLE_CBC
 
-#if UAES_ENABLE_CBC_ENCRYPT
 void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
                       const uint8_t *input,
                       uint8_t *output,
@@ -343,9 +336,6 @@ void UAES_CBC_SimpleEncrypt(const uint8_t *key,
     UAES_CBC_Encrypt(&ctx, input, output, data_len);
 }
 
-#endif // UAES_ENABLE_CBC_ENCRYPT
-
-#if UAES_ENABLE_CBC_DECRYPT
 void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
                       const uint8_t *input,
                       uint8_t *output,
@@ -372,7 +362,7 @@ void UAES_CBC_SimpleDecrypt(const uint8_t *key,
     UAES_CBC_Decrypt(&ctx, input, output, data_len);
 }
 
-#endif // UAES_ENABLE_CBC_DECRYPT
+#endif // UAES_ENABLE_CBC
 
 #if UAES_ENABLE_CFB
 void UAES_CFB_Init(UAES_CFB_Ctx_t *ctx,

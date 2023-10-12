@@ -136,20 +136,12 @@
 #define UAES_32BIT_MODE 1
 #endif
 
-#ifndef UAES_ENABLE_ECB_ENCRYPT
-#define UAES_ENABLE_ECB_ENCRYPT UAES_DEFAULT_CONFIG
+#ifndef UAES_ENABLE_ECB
+#define UAES_ENABLE_ECB UAES_DEFAULT_CONFIG
 #endif
 
-#ifndef UAES_ENABLE_ECB_DECRYPT
-#define UAES_ENABLE_ECB_DECRYPT UAES_DEFAULT_CONFIG
-#endif
-
-#ifndef UAES_ENABLE_CBC_ENCRYPT
-#define UAES_ENABLE_CBC_ENCRYPT UAES_DEFAULT_CONFIG
-#endif
-
-#ifndef UAES_ENABLE_CBC_DECRYPT
-#define UAES_ENABLE_CBC_DECRYPT UAES_DEFAULT_CONFIG
+#ifndef UAES_ENABLE_CBC
+#define UAES_ENABLE_CBC UAES_DEFAULT_CONFIG
 #endif
 
 #ifndef UAES_ENABLE_CFB
@@ -174,14 +166,6 @@
 
 #ifndef UAES_ENABLE_GCM
 #define UAES_ENABLE_GCM UAES_DEFAULT_CONFIG
-#endif
-
-#if ((UAES_ENABLE_ECB_ENCRYPT != 0) || (UAES_ENABLE_ECB_DECRYPT != 0))
-#define UAES_ENABLE_ECB 1
-#endif
-
-#if ((UAES_ENABLE_CBC_ENCRYPT != 0) || (UAES_ENABLE_CBC_DECRYPT != 0))
-#define UAES_ENABLE_CBC 1
 #endif
 
 #if (UAES_ENABLE_CCM != 0) || (UAES_ENABLE_GCM != 0)
@@ -240,9 +224,6 @@ extern void UAES_ECB_Init(UAES_ECB_Ctx_t *ctx,
                           const uint8_t *key,
                           size_t key_len);
 
-#endif // UAES_ENABLE_ECB
-
-#if UAES_ENABLE_ECB_ENCRYPT
 /**
  * @brief Encrypt the data using ECB mode.
  *
@@ -279,9 +260,6 @@ extern void UAES_ECB_SimpleEncrypt(const uint8_t *key,
                                    uint8_t *output,
                                    size_t data_len);
 
-#endif // UAES_ENABLE_ECB_ENCRYPT
-
-#if UAES_ENABLE_ECB_DECRYPT
 /**
  * @brief Decrypt a 16-byte block of data using ECB mode.
  *
@@ -314,7 +292,7 @@ extern void UAES_ECB_SimpleDecrypt(const uint8_t *key,
                                    uint8_t *output,
                                    size_t data_len);
 
-#endif // UAES_ENABLE_ECB_DECRYPT
+#endif // UES_ENABLE_ECB
 
 #if UAES_ENABLE_CBC
 typedef struct {
@@ -353,9 +331,6 @@ extern void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
                           size_t key_len,
                           const uint8_t *iv);
 
-#endif // UAES_ENABLE_CBC
-
-#if UAES_ENABLE_CBC_ENCRYPT
 /**
  * @brief Encrypt data using AES CBC mode.
  *
@@ -396,9 +371,6 @@ extern void UAES_CBC_SimpleEncrypt(const uint8_t *key,
                                    uint8_t *output,
                                    size_t data_len);
 
-#endif // UAES_ENABLE_CBC_ENCRYPT
-
-#if UAES_ENABLE_CBC_DECRYPT
 /**
  * @brief Decrypt data using AES CBC mode.
  * @param ctx The CBC context to use.
@@ -430,7 +402,7 @@ extern void UAES_CBC_SimpleDecrypt(const uint8_t *key,
                                    uint8_t *output,
                                    size_t data_len);
 
-#endif // UAES_ENABLE_CBC_DECRYPT
+#endif // UAES_ENABLE_CBC
 
 #if UAES_ENABLE_CFB
 typedef struct {
