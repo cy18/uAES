@@ -533,6 +533,64 @@ static void CFB1_Xcrypt(UAES_CFB1_Ctx_t *ctx,
 
 #endif // UAES_ENABLE_CFB1
 
+#if UAES_ENABLE_OFB
+void UAES_OFB_Init(UAES_OFB_Ctx_t *ctx,
+                   const uint8_t *key,
+                   size_t key_len,
+                   const uint8_t *iv)
+{
+    InitAesCtx(&ctx->aes_ctx, key, key_len);
+    (void)memcpy(ctx->cipher_stream, iv, sizeof(ctx->cipher_stream));
+    ctx->byte_pos = 16u;
+}
+
+void UAES_OFB_Encrypt(UAES_OFB_Ctx_t *ctx,
+                      const uint8_t *input,
+                      uint8_t *output,
+                      size_t len)
+{
+    for (size_t i = 0u; i < len; ++i) {
+        // If all the 16 bytes are used, generate the next block.
+        if (ctx->byte_pos >= 16u) {
+            Cipher(&ctx->aes_ctx, ctx->cipher_stream, ctx->cipher_stream);
+            ctx->byte_pos = 0u;
+        }
+        output[i] = input[i] ^ ctx->cipher_stream[ctx->byte_pos];
+        ctx->byte_pos++;
+    }
+}
+
+void UAES_OFB_SimpleEncrypt(const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *iv,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len)
+{
+    UAES_OFB_Ctx_t ctx;
+    UAES_OFB_Init(&ctx, key, key_len, iv);
+    UAES_OFB_Encrypt(&ctx, input, output, data_len);
+}
+
+void UAES_OFB_Decrypt(UAES_OFB_Ctx_t *ctx,
+                      const uint8_t *input,
+                      uint8_t *output,
+                      size_t len)
+{
+    UAES_OFB_Encrypt(ctx, input, output, len);
+}
+
+void UAES_OFB_SimpleDecrypt(const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *iv,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len)
+{
+    UAES_OFB_SimpleEncrypt(key, key_len, iv, input, output, data_len);
+}
+#endif // UAES_ENABLE_OFB
+
 #if UAES_ENABLE_CTR
 void UAES_CTR_Init(UAES_CTR_Ctx_t *ctx,
                    const uint8_t *key,
