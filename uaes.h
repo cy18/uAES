@@ -328,7 +328,10 @@ typedef struct {
  *
  * CBC mode need an initialization vector (IV) at initialization. The IV is
  * generally considered public information. However, the IV should NEVER be
- * reused with the same key. The IV length is always 16 bytes.
+ * reused with the same key. Further more, the IV should be unpredictable, or it
+ * may be vulnerable to attacks such as Chosen-plaintext attack
+ * (https:/en.wikipedia.org/wiki/Chosen-plaintext_attack). Refer to NIST SP
+ * 800-38A for more information.
  *
  * The CBC mode need the AES decryption cipher to do decryption. Thus it
  * requires more code space than CTR mode. Furthermore, the AES decryption of
@@ -339,7 +342,7 @@ typedef struct {
  * @param ctx The context to initialize.
  * @param key The key to use.
  * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
- * @param iv The 16-byte initialization vector.
+ * @param iv The 16-byte IV to use. It should be unpredictable and NEVER reused.
  */
 extern void UAES_CBC_Init(UAES_CBC_Ctx_t *ctx,
                           const uint8_t *key,
@@ -377,7 +380,7 @@ extern void UAES_CBC_Encrypt(UAES_CBC_Ctx_t *ctx,
  *
  * @param key The key to use.
  * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
- * @param iv The 16-byte initialization vector.
+ * @param iv The 16-byte IV to use. It should be unpredictable and NEVER reused.
  * @param input The data to encrypt.
  * @param output The buffer to write the encrypted data to.
  * @param data_len The length of the data in bytes, must be a multiple of 16.
@@ -411,7 +414,7 @@ extern void UAES_CBC_Decrypt(UAES_CBC_Ctx_t *ctx,
  *
  * @param key The key to use.
  * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
- * @param iv The 16-byte initialization vector.
+ * @param iv The 16-byte IV to use. It should be unpredictable and NEVER reused.
  * @param input The data to decrypt.
  * @param output The buffer to write the decrypted data to.
  * @param data_len The length of the data in bytes, must be a multiple of 16.
@@ -440,7 +443,7 @@ typedef struct {
  * The CFB mode is a stream cipher. It need a 16-byte initialization vector
  * (IV) at initialization. The IV is generally considered public information.
  * However, the IV should NEVER be reused with the same key. Further more, the
- * IV should be unpredictable, or it may be vulnerable attacks such as
+ * IV should be unpredictable, or it may be vulnerable to attacks such as
  * Chosen-plaintext attack
  * (https:/en.wikipedia.org/wiki/Chosen-plaintext_attack). Refer to NIST SP
  * 800-38A for more information.
