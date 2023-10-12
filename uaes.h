@@ -156,6 +156,10 @@
 #define UAES_ENABLE_CFB UAES_DEFAULT_CONFIG
 #endif
 
+#ifndef UAES_ENABLE_CFB1
+#define UAES_ENABLE_CFB1 UAES_DEFAULT_CONFIG
+#endif
+
 #ifndef UAES_ENABLE_CTR
 #define UAES_ENABLE_CTR UAES_DEFAULT_CONFIG
 #endif
@@ -559,6 +563,129 @@ extern void UAES_CFB_SimpleDecrypt(uint8_t segment_size,
                                    uint8_t *output,
                                    size_t data_len);
 #endif // UAES_ENABLE_CFB
+
+#if UAES_ENABLE_CFB1
+typedef struct {
+    UAES_AES_Ctx_t aes_ctx;
+    uint8_t input_block[16u];
+} UAES_CFB1_Ctx_t;
+
+/**
+ * @brief Initialize the context for AES CFB1 mode.
+ *
+ * The CFB1 mode is the CFB mode with 1-bit segment size. It is considered
+ * self synchronizing and resilient to loss of ciphertext; "When the 1-bit CFB
+ * mode is used, then the synchronization is automatically restored b+1
+ * positions after the inserted or deleted bit. For other values of s in the CFB
+ * mode, and for the other confidentiality modes in this recommendation, the
+ * synchronization must be restored externally." (NIST SP800-38A). I.e. 1-bit
+ * loss in a 128-bit-wide block cipher like AES will render 129 invalid bits
+ * before emitting valid bits. This unique property makes CFB-1 mode suitable
+ * for some applications.
+ * (https:/en.wikipedia.org/wiki/Block_cipher_mode_of_operation#Cipher_feedback_(CFB))
+ *
+ * It is worth noting that in CFB1 mode, every bit need one 16-byte AES
+ * encryption operation. Thus, it is roughly 128 times slower than other modes.
+ *
+ * Refer to UAES_CFB_Init for more information about CFB mode.
+ *
+ * @param ctx The context to initialize.
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param iv The 16-byte IV to use. It should be unpredictable and NEVER reused.
+ */
+extern void UAES_CFB1_Init(UAES_CFB1_Ctx_t *ctx,
+                           const uint8_t *key,
+                           size_t key_len,
+                           const uint8_t *iv);
+/**
+ * @brief Encrypt data using AES CFB1 mode.
+ *
+ * This function can be called multiple times to process multiple blocks.
+ *
+ * To reduce the RAM usage, the data is given as byte array, but the length
+ * is given in bits. The bit order is from MSB to LSB. Thus, if the data length
+ * is not a multiple of 8, the lower bits of the last byte will be ignored.
+ *
+ * It is allowed for the input and output to overlap. However, the output should
+ * not be before the input in a same buffer. This is because the function
+ * process the data bit by bit. If the output is before the input, the input
+ * will be overwritten before it is read.
+ *
+ * To simplify the implementation, the unprocessed bits in OUTPUT buffer are
+ * ignored. Assuming the the result of encryption is the same as the input,
+ * then:
+ *
+ * Bit_len: 1, input: 0xFF, output before call: 0x00, output after call: 0x80
+ * Bit_len: 1, input: 0xFF, output before call: 0x01, output after call: 0x81
+ * Bit_len: 4, input: 0xFF, output before call: 0x01, output after call: 0xF1
+ *
+ * Note the second and third examples. The lower bits of the input data are not
+ * processed, and the lower bits of the output are kept unchanged.
+ *
+ * @param ctx The CFB1 context to use.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param bit_len The length of the data in bits.
+ */
+extern void UAES_CFB1_Encrypt(UAES_CFB1_Ctx_t *ctx,
+                              const uint8_t *input,
+                              uint8_t *output,
+                              size_t bit_len);
+
+/**
+ * @brief Simple function for encrypting data using CFB1 mode.
+ *
+ * All the rules of UAES_CFB1_Init and UAES_CFB1_Encrypt apply here.
+ *
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param iv The 16-byte IV to use. It should be unpredictable and NEVER reused.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param bit_len The length of the data in bits.
+ */
+extern void UAES_CFB1_SimpleEncrypt(const uint8_t *key,
+                                    size_t key_len,
+                                    const uint8_t *iv,
+                                    const uint8_t *input,
+                                    uint8_t *output,
+                                    size_t bit_len);
+
+/**
+ * @brief Decrypt data using AES CFB1 mode.
+ *
+ * All the rules of UAES_CFB1_Encrypt apply here.
+ *
+ * @param ctx The CFB1 context to use.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the decrypted data to.
+ * @param bit_len The length of the data in bits.
+ */
+extern void UAES_CFB1_Decrypt(UAES_CFB1_Ctx_t *ctx,
+                              const uint8_t *input,
+                              uint8_t *output,
+                              size_t bit_len);
+
+/**
+ * @brief Simple function for decrypting data using CFB1 mode.
+ *
+ * All the rules of UAES_CFB1_Init and UAES_CFB1_Decrypt apply here.
+ *
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param iv The 16-byte IV to use. It should be unpredictable and NEVER reused.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the decrypted data to.
+ * @param bit_len The length of the data in bits.
+ */
+extern void UAES_CFB1_SimpleDecrypt(const uint8_t *key,
+                                    size_t key_len,
+                                    const uint8_t *iv,
+                                    const uint8_t *input,
+                                    uint8_t *output,
+                                    size_t bit_len);
+#endif // UAES_ENABLE_CFB1
 
 #if UAES_ENABLE_CTR
 typedef struct {

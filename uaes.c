@@ -189,6 +189,14 @@ static void CFB_Xcrypt(UAES_CFB_Ctx_t *ctx,
                        uint8_t encrypt);
 #endif
 
+#if UAES_ENABLE_CFB1
+static void CFB1_Xcrypt(UAES_CFB1_Ctx_t *ctx,
+                        const uint8_t *input,
+                        uint8_t *output,
+                        size_t bit_len,
+                        uint8_t encrypt);
+#endif
+
 #if UAES_ENABLE_CCM
 static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
                        const uint8_t *input,
@@ -431,6 +439,99 @@ static void CFB_Xcrypt(UAES_CFB_Ctx_t *ctx,
 }
 
 #endif // UAES_ENABLE_CFB
+
+#if UAES_ENABLE_CFB1
+void UAES_CFB1_Init(UAES_CFB1_Ctx_t *ctx,
+                    const uint8_t *key,
+                    size_t key_len,
+                    const uint8_t *iv)
+{
+    InitAesCtx(&ctx->aes_ctx, key, key_len);
+    (void)memcpy(ctx->input_block, iv, sizeof(ctx->input_block));
+}
+
+void UAES_CFB1_Encrypt(UAES_CFB1_Ctx_t *ctx,
+                       const uint8_t *input,
+                       uint8_t *output,
+                       size_t bit_len)
+{
+    CFB1_Xcrypt(ctx, input, output, bit_len, 1);
+}
+
+void UAES_CFB1_SimpleEncrypt(const uint8_t *key,
+                             size_t key_len,
+                             const uint8_t *iv,
+                             const uint8_t *input,
+                             uint8_t *output,
+                             size_t bit_len)
+{
+    UAES_CFB1_Ctx_t ctx;
+    UAES_CFB1_Init(&ctx, key, key_len, iv);
+    UAES_CFB1_Encrypt(&ctx, input, output, bit_len);
+}
+
+void UAES_CFB1_Decrypt(UAES_CFB1_Ctx_t *ctx,
+                       const uint8_t *input,
+                       uint8_t *output,
+                       size_t bit_len)
+{
+    CFB1_Xcrypt(ctx, input, output, bit_len, 0);
+}
+
+void UAES_CFB1_SimpleDecrypt(const uint8_t *key,
+                             size_t key_len,
+                             const uint8_t *iv,
+                             const uint8_t *input,
+                             uint8_t *output,
+                             size_t bit_len)
+{
+    UAES_CFB1_Ctx_t ctx;
+    UAES_CFB1_Init(&ctx, key, key_len, iv);
+    UAES_CFB1_Decrypt(&ctx, input, output, bit_len);
+}
+
+static void CFB1_Xcrypt(UAES_CFB1_Ctx_t *ctx,
+                        const uint8_t *input,
+                        uint8_t *output,
+                        size_t bit_len,
+                        uint8_t encrypt)
+{
+    uint8_t cipher_block[16u];
+    for (size_t i = 0u; i < bit_len; ++i) {
+        uint8_t byte_pos = (uint8_t)(i / 8u);
+        uint8_t bit_mask = (uint8_t)(1u << (7u - (i % 8u)));
+        uint8_t ct_bit = 0u;
+        // Generate the cipher block.
+        Cipher(&ctx->aes_ctx, ctx->input_block, cipher_block);
+        uint8_t bit = (uint8_t)(input[byte_pos] & bit_mask);
+        // When decrypting, the cipher text bit is the input bit.
+        if (encrypt == 0u) {
+            ct_bit = bit;
+        }
+        // Compute the cipher text bit.
+        if ((cipher_block[0] & 0x80u) != 0u) {
+            bit ^= bit_mask;
+        }
+        // When encrypting, the cipher text bit is the output bit.
+        if (encrypt == 1u) {
+            ct_bit = bit;
+        }
+        // Write the cipher text bit to the output.
+        output[byte_pos] &= (uint8_t)(~bit_mask);
+        output[byte_pos] |= bit;
+        // Shift the input block.
+        for (uint8_t i = 0u; i < 15u; ++i) {
+            ctx->input_block[i] <<= 1u;
+            ctx->input_block[i] |= (uint8_t)(ctx->input_block[i + 1u] >> 7u);
+        }
+        ctx->input_block[15u] <<= 1u;
+        if (ct_bit != 0) {
+            ctx->input_block[15u] |= 1u;
+        }
+    }
+}
+
+#endif // UAES_ENABLE_CFB1
 
 #if UAES_ENABLE_CTR
 void UAES_CTR_Init(UAES_CTR_Ctx_t *ctx,
