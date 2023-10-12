@@ -134,14 +134,12 @@ static void InvCipher(const UAES_AES_Ctx_t *ctx,
                       uint8_t output[16u]);
 static void InvMixColumns(State_t state);
 static void InvSubBytes(State_t state);
-static uint8_t InvSubByte(uint8_t x);
 static uint32_t InvSubWord(uint32_t x);
 static void InvShiftRows(State_t state);
 #endif
 #endif // UAES_32BIT_MODE == 0
 
 static uint8_t SubByte(uint8_t x);
-
 #if ENABLE_INV_CIPHER
 static uint8_t InvSubByte(uint8_t x);
 #endif
@@ -344,11 +342,11 @@ void UAES_CBC_SimpleDecrypt(const uint8_t *key,
 #endif // UAES_ENABLE_CBC_DECRYPT
 
 #if UAES_ENABLE_CFB
-extern void UAES_CFB_Init(UAES_CFB_Ctx_t *ctx,
-                          uint8_t segment_size,
-                          const uint8_t *key,
-                          size_t key_len,
-                          const uint8_t *iv)
+void UAES_CFB_Init(UAES_CFB_Ctx_t *ctx,
+                   uint8_t segment_size,
+                   const uint8_t *key,
+                   size_t key_len,
+                   const uint8_t *iv)
 {
     InitAesCtx(&ctx->aes_ctx, key, key_len);
     (void)memcpy(ctx->input_block, iv, sizeof(ctx->input_block));
@@ -418,7 +416,7 @@ static void CFB_Xcrypt(UAES_CFB_Ctx_t *ctx,
             // Shift according to the segment size.
             (void)memcpy(ctx->cipher_block,
                          &ctx->input_block[ctx->segment_bytes],
-                         16u - ctx->segment_bytes);
+                         (size_t)(16u - (size_t)ctx->segment_bytes));
             (void)memcpy(&ctx->cipher_block[16u - ctx->segment_bytes],
                          ctx->input_block,
                          ctx->segment_bytes);
@@ -520,12 +518,12 @@ static void CFB1_Xcrypt(UAES_CFB1_Ctx_t *ctx,
         output[byte_pos] &= (uint8_t)(~bit_mask);
         output[byte_pos] |= bit;
         // Shift the input block.
-        for (uint8_t i = 0u; i < 15u; ++i) {
-            ctx->input_block[i] <<= 1u;
-            ctx->input_block[i] |= (uint8_t)(ctx->input_block[i + 1u] >> 7u);
+        for (uint8_t j = 0u; j < 15u; ++j) {
+            ctx->input_block[j] <<= 1u;
+            ctx->input_block[j] |= (uint8_t)(ctx->input_block[j + 1u] >> 7u);
         }
         ctx->input_block[15u] <<= 1u;
-        if (ct_bit != 0) {
+        if (ct_bit != 0u) {
             ctx->input_block[15u] |= 1u;
         }
     }
@@ -1331,11 +1329,11 @@ static void ExpandRoundKey(uint8_t key_num_words,
     static const uint8_t RCON[10] = { 0x01, 0x02, 0x04, 0x08, 0x10,
                                       0x20, 0x40, 0x80, 0x1b, 0x36 };
     uint8_t tmp[4u]; // Store the intermediate results
-    uint8_t *p;
+    const uint8_t *p;
     if (step > 0u) {
-        p = (uint8_t *)&round_key_buf[(step - 1u) * 4u];
+        p = (const uint8_t *)&round_key_buf[(step - 1u) * 4u];
     } else {
-        p = (uint8_t *)&round_key_buf[(key_num_words - 1u) * 4u];
+        p = (const uint8_t *)&round_key_buf[(key_num_words - 1u) * 4u];
     }
     tmp[0] = p[0];
     tmp[1] = p[1];
@@ -1983,9 +1981,9 @@ static void EnsureSboxInitialized(void)
             // Multiply p by 3
             p = p ^ (uint8_t)Times2(p);
             // Divide q by 3 (equals multiplication by 0xf6)
-            q ^= q << 1u;
-            q ^= q << 2u;
-            q ^= q << 4u;
+            q ^= (uint8_t)(q << 1u);
+            q ^= (uint8_t)(q << 2u);
+            q ^= (uint8_t)(q << 4u);
             q ^= ((q >> 7u) == 0u) ? 0u : 0x09u;
             s_sbox[p] = SboxAffineTransform(q);
 #if ENABLE_INV_CIPHER
