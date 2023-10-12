@@ -37,8 +37,13 @@
 #define TEST_BASE_DIR "."
 #endif
 
+// The total number of tests can be found by counting all "Count" keywords
+// in all .rsp files. Since OFB is not supported yet, files with name
+// containing "OFB" are filtered out. For example:
+// find . -name "*.rsp" | grep -v "OFB" | xargs cat | grep -i "count" | wc -l
+// The result is 63820, i.e., there are 63820 tests in total.
 #ifndef EXPECTED_TEST_NUM
-#define EXPECTED_TEST_NUM 55606u
+#define EXPECTED_TEST_NUM 63820u
 #endif
 
 typedef enum {
@@ -56,8 +61,10 @@ typedef struct TestCaseStruct {
     size_t aad_len;
     uint8_t aad[256u];
     size_t plain_text_len;
+    size_t plain_text_bit_len;
     uint8_t plain_text[256u];
     size_t cipher_text_len;
+    size_t cipher_text_bit_len;
     uint8_t cipher_text[256u];
     size_t tag_len;
     uint8_t tag[256u];
@@ -76,8 +83,8 @@ typedef void (*FuncDoTest_t)(TestCase_t *p_test);
 static size_t s_num_pass = 0u;
 static size_t s_num_fail = 0u;
 
-static bool ProcessLine(char *line, TestCase_t *p_test);
-static void ProcessEntry(char *entry, TestCase_t *p_test);
+static bool ProcessLine(char *line, TestCase_t *p_test, bool data_is_bit);
+static void ProcessEntry(char *entry, TestCase_t *p_test, bool data_is_bit);
 static bool IsEmptyLine(const char *line);
 static bool IsCommentLine(const char *line);
 static char *TryProcessSection(char *line);
@@ -86,6 +93,11 @@ static bool TrySplitKeyValue(char *line, char **key, char **value);
 static bool TryProcessSizeValue(const char *expected_key,
                                 const char *actual_key,
                                 const char *value_str,
+                                size_t *p_size);
+static bool TryProcessBitsValue(const char *expected_key,
+                                const char *actual_key,
+                                const char *value_str,
+                                uint8_t *p_bits,
                                 size_t *p_size);
 static bool TryProcessBytesValue(const char *expected_key,
                                  const char *actual_key,
@@ -107,13 +119,20 @@ static void TestEcb(TestCase_t *p_test);
 static void TestEcbMct(TestCase_t *p_test);
 static void TestCbc(TestCase_t *p_test);
 static void TestCbcMct(TestCase_t *p_test);
+static void TestCfb1(TestCase_t *p_test);
+static void TestCfb1Mct(TestCase_t *p_test);
+static void TestCfb(TestCase_t *p_test, uint8_t segment_size);
+static void TestCfb8(TestCase_t *p_test);
+static void TestCfb128(TestCase_t *p_test);
+static void TestCfb8Mct(TestCase_t *p_test);
+static void TestCfb128Mct(TestCase_t *p_test);
 static void TestGcmEncrypt(TestCase_t *p_test);
 static void TestGcmDecrypt(TestCase_t *p_test);
 static void TestCcmEncrypt(TestCase_t *p_test);
 static void TestCcmDecrypt(TestCase_t *p_test);
 
 // Process the next line of rsp file, return true if a new case is updated
-static bool ProcessLine(char *line, TestCase_t *p_test)
+static bool ProcessLine(char *line, TestCase_t *p_test, bool data_is_bit)
 {
     bool test_ready = false;
     do {
@@ -134,12 +153,12 @@ static bool ProcessLine(char *line, TestCase_t *p_test)
         }
         char *section = TryProcessSection(line);
         if (section == NULL) {
-            ProcessEntry(line, p_test);
+            ProcessEntry(line, p_test, data_is_bit);
         } else {
             // A section may contain multiple entries
             while (section != NULL) {
                 char *entry = SplitSection(&section);
-                ProcessEntry(entry, p_test);
+                ProcessEntry(entry, p_test, data_is_bit);
             }
             continue;
         }
@@ -148,7 +167,7 @@ static bool ProcessLine(char *line, TestCase_t *p_test)
 }
 
 // Process an entry and save the result to p_test
-static void ProcessEntry(char *entry, TestCase_t *p_test)
+static void ProcessEntry(char *entry, TestCase_t *p_test, bool data_is_bit)
 {
     do {
         if (strcmp(entry, "ENCRYPT") == 0) {
@@ -242,6 +261,22 @@ static void ProcessEntry(char *entry, TestCase_t *p_test)
                                  p_test->aad,
                                  &p_test->aad_len)) {
             continue;
+        }
+        if (data_is_bit) {
+            if (TryProcessBitsValue("PLAINTEXT",
+                                    key,
+                                    value,
+                                    p_test->plain_text,
+                                    &p_test->plain_text_bit_len)) {
+                continue;
+            }
+            if (TryProcessBitsValue("CIPHERTEXT",
+                                    key,
+                                    value,
+                                    p_test->cipher_text,
+                                    &p_test->cipher_text_bit_len)) {
+                continue;
+            }
         }
         if (TryProcessBytesValue("PLAINTEXT",
                                  key,
@@ -384,6 +419,35 @@ static bool TryProcessSizeValue(const char *expected_key,
     return true;
 }
 
+// If the key matches AND the value consists of only 0 and 1, save the value as
+// bits
+static bool TryProcessBitsValue(const char *expected_key,
+                                const char *actual_key,
+                                const char *value_str,
+                                uint8_t *p_bits,
+                                size_t *p_size)
+{
+    if (strcmp(expected_key, actual_key) != 0) {
+        return false;
+    }
+    *p_size = strlen(value_str);
+    if (*p_size < 1u) {
+        return false;
+    }
+    for (size_t i = 0; i < *p_size; i++) {
+        if ((value_str[i] != '0') && (value_str[i] != '1')) {
+            return false;
+        }
+    }
+    memset(p_bits, 0, (*p_size + 7u) / 8u);
+    for (size_t i = 0; i < *p_size; i++) {
+        if (value_str[i] == '1') {
+            p_bits[i / 8u] |= (1u << (7u - (i % 8u)));
+        }
+    }
+    return true;
+}
+
 // If the key matches, save the value as bytes
 static bool TryProcessBytesValue(const char *expected_key,
                                  const char *actual_key,
@@ -446,6 +510,8 @@ static void PrintCase(const TestCase_t *p_test)
     printf("force_tag_len: %zu\n", p_test->force_tag_len);
     printf("force_pt_len: %zu\n", p_test->force_pt_len);
     printf("force_aad_len: %zu\n", p_test->force_aad_len);
+    printf("plain_text_bit_len: %zu\n", p_test->plain_text_bit_len);
+    printf("cipher_text_bit_len: %zu\n", p_test->cipher_text_bit_len);
     if (p_test->expect_verify_failure) {
         printf("Expect tag fail: True\n");
     }
@@ -473,6 +539,12 @@ static void DoTests(FuncDoTest_t func, const char *name, const char *rsp_file)
     if (file == NULL) {
         printf("Failed to open file %s\n", full_path);
     }
+    bool data_is_bit = false;
+    if (strstr(rsp_file, "CFB1") != NULL) {
+        if (strstr(rsp_file, "CFB128") == NULL) {
+            data_is_bit = true;
+        }
+    }
     bool last_line = false;
     while (!last_line) {
         if (!feof(file)) {
@@ -482,7 +554,7 @@ static void DoTests(FuncDoTest_t func, const char *name, const char *rsp_file)
             // Feed an empty line to trigger the last test case
             line_buf[0] = '\0';
         }
-        if (ProcessLine(line_buf, &test)) {
+        if (ProcessLine(line_buf, &test, data_is_bit)) {
             func(&test);
             if (test.error_msg != NULL) {
                 s_num_fail++;
@@ -735,6 +807,227 @@ static void TestCbcMct(TestCase_t *p_test)
     }
 }
 
+static void TestCfb1(TestCase_t *p_test)
+{
+    uint8_t result[1024u];
+    if (!CheckInput(p_test, true, true, false, false, false, false)) {
+        return;
+    }
+    if (p_test->plain_text_bit_len != p_test->cipher_text_bit_len) {
+        p_test->error_msg = "Plain text and cipher text length mismatch";
+        return;
+    }
+    if (p_test->plain_text_bit_len == 0u) {
+        p_test->error_msg = "Plain text length is zero";
+        return;
+    }
+    p_test->plain_text_len = (p_test->plain_text_bit_len + 7u) / 8u;
+    p_test->cipher_text_len = (p_test->cipher_text_bit_len + 7u) / 8u;
+    memset(result, 0, sizeof(result));
+    UAES_CFB1_SimpleEncrypt(p_test->key,
+                            p_test->key_len,
+                            p_test->iv,
+                            p_test->plain_text,
+                            result,
+                            p_test->plain_text_bit_len);
+    (void)CheckCipherText(p_test, result);
+    UAES_CFB1_SimpleDecrypt(p_test->key,
+                            p_test->key_len,
+                            p_test->iv,
+                            p_test->cipher_text,
+                            result,
+                            p_test->cipher_text_bit_len);
+    (void)CheckPlainText(p_test, result);
+}
+
+static void TestCfb1Mct(TestCase_t *p_test)
+{
+    if (!CheckInput(p_test, true, true, false, false, false, false)) {
+        return;
+    }
+    if (p_test->plain_text_bit_len != p_test->cipher_text_bit_len) {
+        p_test->error_msg = "Plain text and cipher text length mismatch";
+        return;
+    }
+    if (p_test->plain_text_bit_len == 0u) {
+        p_test->error_msg = "Plain text length is zero";
+        return;
+    }
+    p_test->plain_text_len = (p_test->plain_text_bit_len + 7u) / 8u;
+    p_test->cipher_text_len = (p_test->cipher_text_bit_len + 7u) / 8u;
+    if (p_test->type == TYPE_ENCRYPT) {
+        UAES_CFB1_Ctx_t ctx;
+        static uint8_t ct[1000u];
+        uint8_t pt = p_test->plain_text[0];
+        UAES_CFB1_Init(&ctx, p_test->key, p_test->key_len, p_test->iv);
+        for (size_t i = 0u; i < 1000u; ++i) {
+            UAES_CFB1_Encrypt(&ctx, &pt, &ct[i], 1u);
+            if (i < 128) {
+                uint8_t mask = 1u << (7u - (i % 8u));
+                if ((p_test->iv[i / 8u] & mask) != 0u) {
+                    pt = (1u << 7u);
+                } else {
+                    pt = 0u;
+                }
+            } else {
+                pt = ct[i - 128u];
+            }
+        }
+        CheckCipherText(p_test, &ct[999u]);
+    } else if (p_test->type == TYPE_DECRYPT) {
+        UAES_CFB1_Ctx_t ctx;
+        static uint8_t pt[1000u];
+        uint8_t ct = p_test->cipher_text[0];
+        UAES_CFB1_Init(&ctx, p_test->key, p_test->key_len, p_test->iv);
+        for (size_t i = 0u; i < 1000u; ++i) {
+            UAES_CFB1_Decrypt(&ctx, &ct, &pt[i], 1u);
+            if (i < 128) {
+                uint8_t mask = 1u << (7u - (i % 8u));
+                if ((p_test->iv[i / 8u] & mask) != 0u) {
+                    ct = (1u << 7u);
+                } else {
+                    ct = 0u;
+                }
+            } else {
+                ct = pt[i - 128u];
+            }
+        }
+        CheckPlainText(p_test, &pt[999u]);
+    } else {
+        p_test->error_msg = "Test type unspecified for CFB8 MCT";
+    }
+}
+
+static void TestCfb(TestCase_t *p_test, uint8_t segment_size)
+{
+    uint8_t result[1024u];
+    if (!CheckInput(p_test, true, true, true, false, true, false)) {
+        return;
+    }
+    UAES_CFB_SimpleEncrypt(segment_size,
+                           p_test->key,
+                           p_test->key_len,
+                           p_test->iv,
+                           p_test->plain_text,
+                           result,
+                           p_test->plain_text_len);
+    (void)CheckCipherText(p_test, result);
+    UAES_CFB_SimpleDecrypt(segment_size,
+                           p_test->key,
+                           p_test->key_len,
+                           p_test->iv,
+                           p_test->cipher_text,
+                           result,
+                           p_test->cipher_text_len);
+    (void)CheckPlainText(p_test, result);
+}
+
+static void TestCfb8(TestCase_t *p_test)
+{
+    TestCfb(p_test, 8u);
+}
+
+static void TestCfb128(TestCase_t *p_test)
+{
+    TestCfb(p_test, 128u);
+}
+
+static void TestCfb8Mct(TestCase_t *p_test)
+{
+    if (!CheckInput(p_test, true, true, true, false, true, false)) {
+        return;
+    }
+    if ((p_test->plain_text_len != 1u) || (p_test->cipher_text_len != 1u)) {
+        p_test->error_msg = "data length must be 1 for CFB8 MCT";
+    }
+    if (p_test->type == TYPE_ENCRYPT) {
+        UAES_CFB_Ctx_t ctx;
+        static uint8_t ct[1000u];
+        uint8_t pt = p_test->plain_text[0];
+        UAES_CFB_Init(&ctx, 8u, p_test->key, p_test->key_len, p_test->iv);
+        for (size_t i = 0u; i < 1000u; ++i) {
+            UAES_CFB_Encrypt(&ctx, &pt, &ct[i], 1u);
+            if (i < 16u) {
+                pt = p_test->iv[i];
+            } else {
+                pt = ct[i - 16u];
+            }
+        }
+        CheckCipherText(p_test, &ct[999u]);
+    } else if (p_test->type == TYPE_DECRYPT) {
+        UAES_CFB_Ctx_t ctx;
+        static uint8_t pt[1000u];
+        uint8_t ct = p_test->cipher_text[0];
+        UAES_CFB_Init(&ctx, 8u, p_test->key, p_test->key_len, p_test->iv);
+        for (size_t i = 0u; i < 1000u; ++i) {
+            UAES_CFB_Decrypt(&ctx, &ct, &pt[i], 1u);
+            if (i < 16u) {
+                ct = p_test->iv[i];
+            } else {
+                ct = pt[i - 16u];
+            }
+        }
+        CheckPlainText(p_test, &pt[999u]);
+    } else {
+        p_test->error_msg = "Test type unspecified for CFB8 MCT";
+    }
+}
+
+static void TestCfb128Mct(TestCase_t *p_test)
+{
+    if (!CheckInput(p_test, true, true, true, false, true, false)) {
+        return;
+    }
+    if ((p_test->plain_text_len != 16u) || (p_test->cipher_text_len != 16u)) {
+        p_test->error_msg = "data length must be 16 for CFB128 MCT";
+    }
+    if (p_test->type == TYPE_ENCRYPT) {
+        UAES_CFB_Ctx_t ctx;
+        uint8_t ct[16u];
+        uint8_t pt[16u];
+        uint8_t pt_new[16u];
+        for (size_t i = 0u; i < 1000u; ++i) {
+            if (i == 0u) {
+                UAES_CFB_Init(&ctx,
+                              128u,
+                              p_test->key,
+                              p_test->key_len,
+                              p_test->iv);
+                UAES_CFB_Encrypt(&ctx, p_test->plain_text, ct, 16u);
+                memcpy(pt, p_test->iv, 16u);
+            } else {
+                memcpy(pt_new, ct, 16u);
+                UAES_CFB_Encrypt(&ctx, pt, ct, 16u);
+                memcpy(pt, pt_new, 16u);
+            }
+        }
+        CheckCipherText(p_test, ct);
+    } else if (p_test->type == TYPE_DECRYPT) {
+        UAES_CFB_Ctx_t ctx;
+        uint8_t ct[16u];
+        uint8_t pt[16u];
+        uint8_t ct_new[16u];
+        for (size_t i = 0u; i < 1000u; ++i) {
+            if (i == 0u) {
+                UAES_CFB_Init(&ctx,
+                              128u,
+                              p_test->key,
+                              p_test->key_len,
+                              p_test->iv);
+                UAES_CFB_Decrypt(&ctx, p_test->cipher_text, pt, 16u);
+                memcpy(ct, p_test->iv, 16u);
+            } else {
+                memcpy(ct_new, pt, 16u);
+                UAES_CFB_Decrypt(&ctx, ct, pt, 16u);
+                memcpy(ct, ct_new, 16u);
+            }
+        }
+        CheckPlainText(p_test, pt);
+    } else {
+        p_test->error_msg = "Test type unspecified for CFB128 MCT";
+    }
+}
+
 static void TestGcmEncrypt(TestCase_t *p_test)
 {
     uint8_t result[1024u];
@@ -926,6 +1219,117 @@ int main(void)
          i++) {
         DoTests(test_func, test_name, RSP_LIST_CBC_MCT[i]);
     }
+    // CFB1
+    test_func = TestCfb1;
+    test_name = "CFB1";
+    const char *RSP_LIST_CFB1[] = {
+        "nist_data/aesmmt/CFB1MMT128.rsp",
+        "nist_data/aesmmt/CFB1MMT192.rsp",
+        "nist_data/aesmmt/CFB1MMT256.rsp",
+        "nist_data/KAT_AES/CFB1GFSbox128.rsp",
+        "nist_data/KAT_AES/CFB1GFSbox192.rsp",
+        "nist_data/KAT_AES/CFB1GFSbox256.rsp",
+        "nist_data/KAT_AES/CFB1KeySbox128.rsp",
+        "nist_data/KAT_AES/CFB1KeySbox192.rsp",
+        "nist_data/KAT_AES/CFB1KeySbox256.rsp",
+        "nist_data/KAT_AES/CFB1VarKey128.rsp",
+        "nist_data/KAT_AES/CFB1VarKey192.rsp",
+        "nist_data/KAT_AES/CFB1VarKey256.rsp",
+        "nist_data/KAT_AES/CFB1VarTxt128.rsp",
+        "nist_data/KAT_AES/CFB1VarTxt192.rsp",
+        "nist_data/KAT_AES/CFB1VarTxt256.rsp",
+    };
+    for (size_t i = 0; i < sizeof(RSP_LIST_CFB1) / sizeof(RSP_LIST_CFB1[0]);
+         i++) {
+        DoTests(test_func, test_name, RSP_LIST_CFB1[i]);
+    }
+    // CFB1 MCT
+    test_func = TestCfb1Mct;
+    test_name = "CFB1 MCT";
+    const char *RSP_LIST_CFB1_MCT[] = {
+        "nist_data/aesmct/CFB1MCT128.rsp",
+        "nist_data/aesmct/CFB1MCT192.rsp",
+        "nist_data/aesmct/CFB1MCT256.rsp",
+    };
+    for (size_t i = 0;
+         i < sizeof(RSP_LIST_CFB1_MCT) / sizeof(RSP_LIST_CFB1_MCT[0]);
+         i++) {
+        DoTests(test_func, test_name, RSP_LIST_CFB1_MCT[i]);
+    }
+    // CFB8
+    test_func = TestCfb8;
+    test_name = "CFB8";
+    const char *RSP_LIST_CFB8[] = {
+        "nist_data/aesmmt/CFB8MMT128.rsp",
+        "nist_data/aesmmt/CFB8MMT192.rsp",
+        "nist_data/aesmmt/CFB8MMT256.rsp",
+        "nist_data/KAT_AES/CFB8GFSbox128.rsp",
+        "nist_data/KAT_AES/CFB8GFSbox192.rsp",
+        "nist_data/KAT_AES/CFB8GFSbox256.rsp",
+        "nist_data/KAT_AES/CFB8KeySbox128.rsp",
+        "nist_data/KAT_AES/CFB8KeySbox192.rsp",
+        "nist_data/KAT_AES/CFB8KeySbox256.rsp",
+        "nist_data/KAT_AES/CFB8VarKey128.rsp",
+        "nist_data/KAT_AES/CFB8VarKey192.rsp",
+        "nist_data/KAT_AES/CFB8VarKey256.rsp",
+        "nist_data/KAT_AES/CFB8VarTxt128.rsp",
+        "nist_data/KAT_AES/CFB8VarTxt192.rsp",
+        "nist_data/KAT_AES/CFB8VarTxt256.rsp",
+    };
+    for (size_t i = 0; i < sizeof(RSP_LIST_CFB8) / sizeof(RSP_LIST_CFB8[0]);
+         i++) {
+        DoTests(test_func, test_name, RSP_LIST_CFB8[i]);
+    }
+    // CFB8 MCT
+    test_func = TestCfb8Mct;
+    test_name = "CFB8 MCT";
+    const char *RSP_LIST_CFB8_MCT[] = {
+        "nist_data/aesmct/CFB8MCT128.rsp",
+        "nist_data/aesmct/CFB8MCT192.rsp",
+        "nist_data/aesmct/CFB8MCT256.rsp",
+    };
+    for (size_t i = 0;
+         i < sizeof(RSP_LIST_CFB8_MCT) / sizeof(RSP_LIST_CFB8_MCT[0]);
+         i++) {
+        DoTests(test_func, test_name, RSP_LIST_CFB8_MCT[i]);
+    }
+    // CFB128
+    test_func = TestCfb128;
+    test_name = "CFB128";
+    const char *RSP_LIST_CFB128[] = {
+        "nist_data/aesmmt/CFB128MMT128.rsp",
+        "nist_data/aesmmt/CFB128MMT192.rsp",
+        "nist_data/aesmmt/CFB128MMT256.rsp",
+        "nist_data/KAT_AES/CFB128GFSbox128.rsp",
+        "nist_data/KAT_AES/CFB128GFSbox192.rsp",
+        "nist_data/KAT_AES/CFB128GFSbox256.rsp",
+        "nist_data/KAT_AES/CFB128KeySbox128.rsp",
+        "nist_data/KAT_AES/CFB128KeySbox192.rsp",
+        "nist_data/KAT_AES/CFB128KeySbox256.rsp",
+        "nist_data/KAT_AES/CFB128VarKey128.rsp",
+        "nist_data/KAT_AES/CFB128VarKey192.rsp",
+        "nist_data/KAT_AES/CFB128VarKey256.rsp",
+        "nist_data/KAT_AES/CFB128VarTxt128.rsp",
+        "nist_data/KAT_AES/CFB128VarTxt192.rsp",
+        "nist_data/KAT_AES/CFB128VarTxt256.rsp",
+    };
+    for (size_t i = 0; i < sizeof(RSP_LIST_CFB128) / sizeof(RSP_LIST_CFB128[0]);
+         i++) {
+        DoTests(test_func, test_name, RSP_LIST_CFB128[i]);
+    }
+    // CFB128 MCT
+    test_func = TestCfb128Mct;
+    test_name = "CFB128 MCT";
+    const char *RSP_LIST_CFB128_MCT[] = {
+        "nist_data/aesmct/CFB128MCT128.rsp",
+        "nist_data/aesmct/CFB128MCT192.rsp",
+        "nist_data/aesmct/CFB128MCT256.rsp",
+    };
+    for (size_t i = 0;
+         i < sizeof(RSP_LIST_CFB128_MCT) / sizeof(RSP_LIST_CFB128_MCT[0]);
+         i++) {
+        DoTests(test_func, test_name, RSP_LIST_CFB128_MCT[i]);
+    }
     // GCM Encrypt
     test_func = TestGcmEncrypt;
     test_name = "GCM Encrypt";
@@ -987,12 +1391,6 @@ int main(void)
          i++) {
         DoTests(test_func, test_name, RSP_LIST_CCM_DEC[i]);
     }
-    // The total number of tests can be found by counting all "Count" keywords
-    // in all .rsp files. Since CFB and OFB are not supported, files with name
-    // containing them are filtered out.
-    // For example:
-    // find . -name "*.rsp" | grep -v "CFB" | grep -v "OFB" | xargs cat | grep
-    // -i "count" | wc -l
     printf("Expected tests number: %u, Total pass: %zu, total fail:%zu\n",
            EXPECTED_TEST_NUM,
            s_num_pass,
