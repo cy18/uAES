@@ -181,6 +181,14 @@ static void IterateKeyStream(const UAES_AES_Ctx_t *ctx,
 static void XorBlocks(const uint8_t *b1, const uint8_t *b2, uint8_t *output);
 #endif
 
+#if UAES_ENABLE_CFB
+static void CFB_Xcrypt(UAES_CFB_Ctx_t *ctx,
+                       const uint8_t *input,
+                       uint8_t *output,
+                       size_t len,
+                       uint8_t encrypt);
+#endif
+
 #if UAES_ENABLE_CCM
 static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
                        const uint8_t *input,
@@ -326,6 +334,103 @@ void UAES_CBC_SimpleDecrypt(const uint8_t *key,
 }
 
 #endif // UAES_ENABLE_CBC_DECRYPT
+
+#if UAES_ENABLE_CFB
+extern void UAES_CFB_Init(UAES_CFB_Ctx_t *ctx,
+                          uint8_t segment_size,
+                          const uint8_t *key,
+                          size_t key_len,
+                          const uint8_t *iv)
+{
+    InitAesCtx(&ctx->aes_ctx, key, key_len);
+    (void)memcpy(ctx->input_block, iv, sizeof(ctx->input_block));
+    Cipher(&ctx->aes_ctx, ctx->input_block, ctx->cipher_block);
+    ctx->byte_pos = 0u;
+    // Limit the segment size to avoid unexpected behavior.
+    ctx->segment_bytes = segment_size / 8u;
+    if (ctx->segment_bytes < 1u) {
+        ctx->segment_bytes = 1u;
+    } else if (ctx->segment_bytes > 16u) {
+        ctx->segment_bytes = 16u;
+    } else {
+        // Do nothing.
+    }
+}
+
+void UAES_CFB_Encrypt(UAES_CFB_Ctx_t *ctx,
+                      const uint8_t *input,
+                      uint8_t *output,
+                      size_t len)
+{
+    CFB_Xcrypt(ctx, input, output, len, 1);
+}
+
+void UAES_CFB_SimpleEncrypt(uint8_t segment_size,
+                            const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *iv,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len)
+{
+    UAES_CFB_Ctx_t ctx;
+    UAES_CFB_Init(&ctx, segment_size, key, key_len, iv);
+    UAES_CFB_Encrypt(&ctx, input, output, data_len);
+}
+
+void UAES_CFB_Decrypt(UAES_CFB_Ctx_t *ctx,
+                      const uint8_t *input,
+                      uint8_t *output,
+                      size_t len)
+{
+    CFB_Xcrypt(ctx, input, output, len, 0);
+}
+
+void UAES_CFB_SimpleDecrypt(uint8_t segment_size,
+                            const uint8_t *key,
+                            size_t key_len,
+                            const uint8_t *iv,
+                            const uint8_t *input,
+                            uint8_t *output,
+                            size_t data_len)
+{
+    UAES_CFB_Ctx_t ctx;
+    UAES_CFB_Init(&ctx, segment_size, key, key_len, iv);
+    UAES_CFB_Decrypt(&ctx, input, output, data_len);
+}
+
+static void CFB_Xcrypt(UAES_CFB_Ctx_t *ctx,
+                       const uint8_t *input,
+                       uint8_t *output,
+                       size_t len,
+                       uint8_t encrypt)
+{
+    for (size_t i = 0u; i < len; ++i) {
+        if (ctx->byte_pos >= ctx->segment_bytes) {
+            // Shift according to the segment size.
+            (void)memcpy(ctx->cipher_block,
+                         &ctx->input_block[ctx->segment_bytes],
+                         16u - ctx->segment_bytes);
+            (void)memcpy(&ctx->cipher_block[16u - ctx->segment_bytes],
+                         ctx->input_block,
+                         ctx->segment_bytes);
+            (void)memcpy(ctx->input_block, ctx->cipher_block, 16u);
+            // Generate the next cipher block.
+            Cipher(&ctx->aes_ctx, ctx->input_block, ctx->cipher_block);
+            ctx->byte_pos = 0u;
+        }
+        if (encrypt == 0u) {
+            ctx->input_block[ctx->byte_pos] = input[i];
+        }
+        output[i] = input[i] ^ ctx->cipher_block[ctx->byte_pos];
+        if (encrypt == 1u) {
+            ctx->input_block[ctx->byte_pos] = output[i];
+        }
+        ctx->byte_pos++;
+    }
+}
+
+#endif // UAES_ENABLE_CFB
 
 #if UAES_ENABLE_CTR
 void UAES_CTR_Init(UAES_CTR_Ctx_t *ctx,
