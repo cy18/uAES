@@ -160,6 +160,10 @@
 #define UAES_ENABLE_CFB1 UAES_DEFAULT_CONFIG
 #endif
 
+#ifndef UAES_ENABLE_OFB
+#define UAES_ENABLE_OFB UAES_DEFAULT_CONFIG
+#endif
+
 #ifndef UAES_ENABLE_CTR
 #define UAES_ENABLE_CTR UAES_DEFAULT_CONFIG
 #endif
@@ -689,6 +693,117 @@ extern void UAES_CFB1_SimpleDecrypt(const uint8_t *key,
                                     uint8_t *output,
                                     size_t bit_len);
 #endif // UAES_ENABLE_CFB1
+
+#if UAES_ENABLE_OFB
+typedef struct {
+    UAES_AES_Ctx_t aes_ctx;
+    uint8_t byte_pos;
+    uint8_t cipher_stream[16u];
+} UAES_OFB_Ctx_t;
+
+/**
+ * @brief Initialize the context for AES OFB mode.
+ *
+ * The OFB mode is a stream cipher. It need a 16-byte initialization vector
+ * (IV) at initialization. The IV is generally considered public information.
+ * However, the IV should NEVER be reused with the same key. Unlike CBC and CFB,
+ * predictable IVs are allowed in OFB mode.
+ *
+ * One of the drawbacks of OFB mode is that it does not support parallel
+ * encryption and decryption, making it not as popular as CTR mode.
+ *
+ * In this library, the implementation of OFB mode is simpler than CTR mode.
+ * it require less stack RAM and code space than CTR mode. If you just need a
+ * simple stream cipher, OFB mode is the recommended choice.
+ *
+ * @param ctx The context to initialize.
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param iv The 16-byte IV to use. It should NEVER be reused.
+ */
+extern void UAES_OFB_Init(UAES_OFB_Ctx_t *ctx,
+                          const uint8_t *key,
+                          size_t key_len,
+                          const uint8_t *iv);
+/**
+ * @brief Encrypt data using AES OFB mode.
+ *
+ * This function can be called multiple times to process multiple blocks.
+ *
+ * It is allowed for the input and output to overlap. However, the output should
+ * not be before the input in a same buffer. This is because the function
+ * process the data byte by byte. If the output is before the input, the input
+ * will be overwritten before it is read.
+ *
+ * Example:
+ *   uint8_t buf[256u];
+ *   UAES_OFB_Encrypt(&ctx, buf, buf, 256u); Legal
+ *   UAES_OFB_Encrypt(&ctx, buf, buf + 16u, 240u); Illegal
+ *   UAES_OFB_Encrypt(&ctx, buf + 16u, buf, 240u); Legal
+ *
+ * @param ctx The OFB context to use.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param len The length of the data in bytes.
+ */
+extern void UAES_OFB_Encrypt(UAES_OFB_Ctx_t *ctx,
+                             const uint8_t *input,
+                             uint8_t *output,
+                             size_t len);
+
+/**
+ * @brief Simple function for encrypting data using OFB mode.
+ *
+ * All the rules of UAES_OFB_Init and UAES_OFB_Encrypt apply here.
+ *
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param iv The 16-byte IV to use. It should be unpredictable and never reused.
+ * @param input The data to encrypt.
+ * @param output The buffer to write the encrypted data to.
+ * @param data_len The length of the data in bytes.
+ */
+extern void UAES_OFB_SimpleEncrypt(const uint8_t *key,
+                                   size_t key_len,
+                                   const uint8_t *iv,
+                                   const uint8_t *input,
+                                   uint8_t *output,
+                                   size_t data_len);
+
+/**
+ * @brief Decrypt data using AES OFB mode.
+ *
+ * All the rules of UAES_OFB_Encrypt apply here.
+ *
+ * @param ctx The OFB context to use.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the decrypted data to.
+ * @param len The length of the data in bytes.
+ */
+extern void UAES_OFB_Decrypt(UAES_OFB_Ctx_t *ctx,
+                             const uint8_t *input,
+                             uint8_t *output,
+                             size_t len);
+
+/**
+ * @brief Simple function for decrypting data using OFB mode.
+ *
+ * All the rules of UAES_OFB_Init and UAES_OFB_Decrypt apply here.
+ *
+ * @param key The key to use.
+ * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
+ * @param iv The 16-byte IV to use. It should NEVER be reused.
+ * @param input The data to decrypt.
+ * @param output The buffer to write the decrypted data to.
+ * @param data_len The length of the data in bytes.
+ */
+extern void UAES_OFB_SimpleDecrypt(const uint8_t *key,
+                                   size_t key_len,
+                                   const uint8_t *iv,
+                                   const uint8_t *input,
+                                   uint8_t *output,
+                                   size_t data_len);
+#endif // UAES_ENABLE_OFB
 
 #if UAES_ENABLE_CTR
 typedef struct {
