@@ -68,7 +68,6 @@ static void Cipher(const UAES_AES_Ctx_t *ctx,
 static void SubBytes(State_t state);
 static void ShiftRows(State_t state);
 static void MixColumns(State_t state);
-static uint8_t Times2(uint8_t x);
 static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len);
 #if UAES_STORE_ROUND_KEY_IN_CTX
 static void ExpandRoundKey(UAES_AES_Ctx_t *ctx);
@@ -108,7 +107,6 @@ static void SubBytes(State_t state);
 static uint32_t SubWord(uint32_t x);
 static void ShiftRows(State_t state);
 static void MixColumns(State_t state);
-static uint32_t Times2(uint32_t x);
 static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len);
 
 #if UAES_STORE_ROUND_KEY_IN_CTX
@@ -141,6 +139,43 @@ static void InvShiftRows(State_t state);
 #endif
 #endif // UAES_32BIT_MODE == 0
 
+// Declare GF(2^8) multiply functions if necessary.
+#if ((UAES_32BIT_MODE == 1) && (ENABLE_INV_CIPHER == 1))
+#define ENABLE_WORD_TIMES_BYTE 1
+#else
+#define ENABLE_WORD_TIMES_BYTE 0
+#endif
+#if ((UAES_32BIT_MODE == 0) && (ENABLE_INV_CIPHER == 1)) \
+        || (UAES_SBOX_MODE == 0)
+#define ENABLE_BYTE_TIMES_BYTE 1
+#else
+#define ENABLE_BYTE_TIMES_BYTE 0
+#endif
+#if (UAES_32BIT_MODE == 1) || (ENABLE_WORD_TIMES_BYTE == 1)
+#define ENABLE_WORD_TIMES_2 1
+#else
+#define ENABLE_WORD_TIMES_2 0
+#endif
+#if (UAES_32BIT_MODE == 0) || (ENABLE_BYTE_TIMES_BYTE == 1) \
+        || (UAES_SBOX_MODE == 2)
+#define ENABLE_BYTE_TIMES_2 1
+#else
+#define ENABLE_BYTE_TIMES_2 0
+#endif
+
+#if ENABLE_WORD_TIMES_2
+static uint32_t WordTimes2(uint32_t x);
+#endif
+#if ENABLE_BYTE_TIMES_2
+static uint8_t ByteTimes2(uint8_t x);
+#endif
+#if ENABLE_WORD_TIMES_BYTE
+static uint32_t WordTimesByte(uint32_t x, uint8_t b);
+#endif
+#if ENABLE_BYTE_TIMES_BYTE
+static uint8_t ByteTimesByte(uint8_t x, uint8_t b);
+#endif
+
 static uint8_t SubByte(uint8_t x);
 #if ENABLE_INV_CIPHER
 static uint8_t InvSubByte(uint8_t x);
@@ -161,10 +196,6 @@ static uint8_t s_sbox[256u] = { 0 };
 static uint8_t s_rsbox[256u] = { 0 };
 #endif
 static void EnsureSboxInitialized(void);
-#endif
-
-#if (ENABLE_INV_CIPHER == 1) || (UAES_SBOX_MODE == 0)
-static uint32_t Multiply(uint32_t x, uint8_t y);
 #endif
 
 #if (ENABLE_INV_CIPHER == 1) && (UAES_SBOX_MODE == 0)
@@ -1015,7 +1046,7 @@ static void Ghash(const UAES_GCM_Ctx_t *ctx,
     // the high bit of buf[0] is the lowest bit of the state.
     // The algorithm compute H*input by multiplying each bit of input with H
     // from the highest bit to the lowest bit.
-    // Note that this is different  function Multiply() used in InvMixColumns().
+    // Note that this is different from WordTimesByte.
     uint32_t buf[4u];
     (void)memset(buf, 0, sizeof(buf));
     for (uint8_t i = 16u; i > 0u; --i) {
@@ -1158,17 +1189,11 @@ static void MixColumns(State_t state)
         uint8_t *p = &state[i * 4u];
         uint8_t sum = p[0] ^ p[1] ^ p[2] ^ p[3];
         uint8_t p0 = p[0];
-        p[0] ^= sum ^ Times2(p[0] ^ p[1]);
-        p[1] ^= sum ^ Times2(p[1] ^ p[2]);
-        p[2] ^= sum ^ Times2(p[2] ^ p[3]);
-        p[3] ^= sum ^ Times2(p[3] ^ p0);
+        p[0] ^= sum ^ ByteTimes2(p[0] ^ p[1]);
+        p[1] ^= sum ^ ByteTimes2(p[1] ^ p[2]);
+        p[2] ^= sum ^ ByteTimes2(p[2] ^ p[3]);
+        p[3] ^= sum ^ ByteTimes2(p[3] ^ p0);
     }
-}
-
-// Multiply each byte in the word by 2 in the field GF(2^8).
-static uint8_t Times2(uint8_t x)
-{
-    return (uint8_t)((x << 1u) ^ ((x >> 7u) * 0x1Bu));
 }
 
 // Initialize the context of AES cipher.
@@ -1406,10 +1431,10 @@ static void InvMixColumns(State_t state)
         a[2] = state[(i * 4u) + 2u];
         a[3] = state[(i * 4u) + 3u];
         for (uint8_t j = 0u; j < 4u; ++j) {
-            state[(i * 4u) + j] = Multiply(a[j], 0x0e);
-            state[(i * 4u) + j] ^= Multiply(a[(j + 1u) & 3u], 0x0b);
-            state[(i * 4u) + j] ^= Multiply(a[(j + 2u) & 3u], 0x0d);
-            state[(i * 4u) + j] ^= Multiply(a[(j + 3u) & 3u], 0x09);
+            state[(i * 4u) + j] = ByteTimesByte(a[j], 0x0e);
+            state[(i * 4u) + j] ^= ByteTimesByte(a[(j + 1u) & 3u], 0x0b);
+            state[(i * 4u) + j] ^= ByteTimesByte(a[(j + 2u) & 3u], 0x0d);
+            state[(i * 4u) + j] ^= ByteTimesByte(a[(j + 3u) & 3u], 0x09);
         }
     }
 }
@@ -1551,18 +1576,10 @@ static void MixColumns(State_t state)
 {
     uint32_t sum = state[0] ^ state[1] ^ state[2] ^ state[3];
     uint32_t tmp = state[0];
-    state[0] ^= sum ^ Times2(state[0] ^ state[1]);
-    state[1] ^= sum ^ Times2(state[1] ^ state[2]);
-    state[2] ^= sum ^ Times2(state[2] ^ state[3]);
-    state[3] ^= sum ^ Times2(state[3] ^ tmp);
-}
-
-// Multiply each byte in the word by 2 in the field GF(2^8).
-static uint32_t Times2(uint32_t x)
-{
-    uint32_t p1 = (x << 1u) & 0xFEFEFEFEu;
-    uint32_t p2 = ((x >> 7u) & 0x01010101u) * 0x1Bu;
-    return p1 ^ p2;
+    state[0] ^= sum ^ WordTimes2(state[0] ^ state[1]);
+    state[1] ^= sum ^ WordTimes2(state[1] ^ state[2]);
+    state[2] ^= sum ^ WordTimes2(state[2] ^ state[3]);
+    state[3] ^= sum ^ WordTimes2(state[3] ^ tmp);
 }
 
 // Initialize the context of AES cipher.
@@ -1790,10 +1807,10 @@ static void InvMixColumns(State_t state)
         a[i] = state[i];
     }
     for (uint8_t i = 0u; i < 4u; ++i) {
-        state[i] = Multiply(a[i], 0x0e);
-        state[i] ^= Multiply(a[(i + 1u) & 3u], 0x0b);
-        state[i] ^= Multiply(a[(i + 2u) & 3u], 0x0d);
-        state[i] ^= Multiply(a[(i + 3u) & 3u], 0x09);
+        state[i] = WordTimesByte(a[i], 0x0e);
+        state[i] ^= WordTimesByte(a[(i + 1u) & 3u], 0x0b);
+        state[i] ^= WordTimesByte(a[(i + 2u) & 3u], 0x0d);
+        state[i] ^= WordTimesByte(a[(i + 3u) & 3u], 0x09);
     }
 }
 
@@ -1828,6 +1845,59 @@ static void InvShiftRows(State_t state)
 #endif
 
 #endif // UAES_32BIT_MODE == 0
+
+#if ENABLE_WORD_TIMES_2
+// Times each byte in the word by 2 in the field GF(2^8).
+static uint32_t WordTimes2(uint32_t x)
+{
+    uint32_t p1 = (x << 1u) & 0xFEFEFEFEu;
+    uint32_t p2 = ((x >> 7u) & 0x01010101u) * 0x1Bu;
+    return p1 ^ p2;
+}
+#endif
+#if ENABLE_BYTE_TIMES_2
+// Times the byte by 2 in the field GF(2^8).
+static uint8_t ByteTimes2(uint8_t x)
+{
+    uint8_t p1 = (x << 1u) & 0xFEu;
+    uint8_t p2 = ((x >> 7u) & 0x01u) * 0x1Bu;
+    return p1 ^ p2;
+}
+#endif
+#if ENABLE_WORD_TIMES_BYTE
+// Times each byte in the word by the byte in the field GF(2^8).
+static uint32_t WordTimesByte(uint32_t x, uint8_t b)
+{
+    uint32_t result = 0u;
+    uint32_t xx = x;
+    uint8_t bb = b;
+    while (bb != 0u) {
+        if ((bb & 1u) != 0u) {
+            result ^= xx;
+        }
+        xx = WordTimes2(xx);
+        bb >>= 1u;
+    }
+    return result;
+}
+#endif
+#if ENABLE_BYTE_TIMES_BYTE
+// Times two bytes in the field GF(2^8).
+static uint8_t ByteTimesByte(uint8_t x, uint8_t b)
+{
+    uint8_t result = 0u;
+    uint8_t xx = x;
+    uint8_t bb = b;
+    while (bb != 0u) {
+        if ((bb & 1u) != 0u) {
+            result ^= xx;
+        }
+        xx = ByteTimes2(xx);
+        bb >>= 1u;
+    }
+    return result;
+}
+#endif
 
 // Substitute the byte with the value in the S-box.
 static uint8_t SubByte(uint8_t x)
@@ -1953,7 +2023,7 @@ static uint8_t Gf28Inv(uint8_t x)
         rii = remain;
         uint16_t tsi = si;
         si = sii;
-        sii = tsi ^ (uint16_t)Multiply((uint32_t)qi, sii);
+        sii = tsi ^ (uint16_t)ByteTimesByte((uint32_t)qi, sii);
     }
     return sii;
 }
@@ -1980,8 +2050,8 @@ static void EnsureSboxInitialized(void)
         uint8_t q = 1u;
         // Loop invariant: p * q == 1 in the Galois field
         do {
-            // Multiply p by 3
-            p = p ^ (uint8_t)Times2(p);
+            // WordTimesByte p by 3
+            p = p ^ (uint8_t)ByteTimes2(p);
             // Divide q by 3 (equals multiplication by 0xf6)
             q ^= (uint8_t)(q << 1u);
             q ^= (uint8_t)(q << 2u);
@@ -1997,24 +2067,6 @@ static void EnsureSboxInitialized(void)
         s_rsbox[0x63u] = 0u;
 #endif
     }
-}
-#endif
-
-#if (ENABLE_INV_CIPHER == 1) || (UAES_SBOX_MODE == 0)
-// Multiply each byte in the word in the field GF(2^8).
-static uint32_t Multiply(uint32_t x, uint8_t y)
-{
-    uint32_t result = 0u;
-    uint32_t xx = x;
-    uint8_t yy = y;
-    while (yy != 0u) {
-        if ((yy & 1u) != 0u) {
-            result ^= xx;
-        }
-        xx = Times2(xx);
-        yy >>= 1u;
-    }
-    return result;
 }
 #endif
 
