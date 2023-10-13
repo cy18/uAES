@@ -31,6 +31,8 @@
 // In most cases, the tests should not fail, so the log functions are not
 // necessary. Just leave them empty.
 
+#include "uaes_benchmark.h"
+
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -47,12 +49,22 @@ extern void UAES_TP_LogNumber(const char *prompt, int32_t num);
 extern void UAES_TP_LogBytes(const char *prompt,
                              const uint8_t *bytes,
                              size_t len);
-// Get the current time in milliseconds, used for benchmarking speed, return 0
-// if not needed
+// Print the title of the benchmark
+extern void UAES_TP_LogBenchmarkTitle(void);
+// Print the benchmark information
+extern void UAES_TP_LogBenchmarkInfo(const UAES_BM_Info_t *bm_info);
+// Get the current time in milliseconds, used for benchmarking speed,
+// return 0 if not needed
 extern uint32_t UAES_TP_GetTimeMs(void);
 // Get the left space in stack, mainly used for benchmarking stack usage, return
 // 0 if not needed
 extern size_t UAES_TP_GetStackWaterMark(void);
+// Run a benchmark. To measure the stack usage, a new task should be created to
+// run the function. The function should not return until the task is finished
+// and deleted. If task is not supported, run it directly also works, but the
+// stack usage result will be invalid.
+extern void UAES_TP_RunBenchmark(void (*func)(UAES_BM_Info_t *),
+                                 UAES_BM_Info_t *bm_info);
 #define TEST_PORT_H_
 
 #endif // TEST_PORT_H_

@@ -27,25 +27,8 @@
 
 #include "uaes_benchmark.h"
 
-#include <stdio.h>
-
 int main(void)
 {
-    const char MODE_STR[][8] = {
-        [UAES_BM_MODE_ECB_ENC] = "ECB_ENC", [UAES_BM_MODE_ECB_DEC] = "ECB_DEC",
-        [UAES_BM_MODE_CBC_ENC] = "CBC_ENC", [UAES_BM_MODE_CBC_DEC] = "CBC_DEC",
-        [UAES_BM_MODE_OFB] = "OFB",         [UAES_BM_MODE_CTR] = "CTR",
-        [UAES_BM_MODE_CFB128] = "CFB128",   [UAES_BM_MODE_CFB8] = "CFB8",
-        [UAES_BM_MODE_CFB1] = "CFB1",       [UAES_BM_MODE_CCM] = "CCM",
-        [UAES_BM_MODE_GCM] = "GCM",
-    };
-    for (UAES_BM_Mode_t mode = (UAES_BM_Mode_t)0; mode < UAES_BM_END; mode++) {
-        for (size_t key_len = 16u; key_len <= 32u; key_len += 8u) {
-            printf("%s %zu speed(Bps): %lu\n",
-                   MODE_STR[mode],
-                   key_len * 8u,
-                   UAES_Benchmark(mode, key_len));
-        }
-    }
+    UAES_BenchmarkAll();
     return 0u;
 }

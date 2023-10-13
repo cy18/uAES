@@ -46,11 +46,40 @@ typedef enum {
     UAES_BM_END,
 } UAES_BM_Mode_t;
 
-// Return the number of processed bytes per second.
-// To make this work, the UAES_TP_GetTimeMs must be implemented.
-// The benchmark will be run for 3 seconds, and the average value will be
-// returned.
-// The key_len must be 16, 24 or 32.
-extern uint32_t UAES_Benchmark(UAES_BM_Mode_t mode, size_t key_len);
+static const char UAES_BM_MODE_STR[UAES_BM_END][8] = {
+    [UAES_BM_MODE_ECB_ENC] = "ECB_ENC", [UAES_BM_MODE_ECB_DEC] = "ECB_DEC",
+    [UAES_BM_MODE_CBC_ENC] = "CBC_ENC", [UAES_BM_MODE_CBC_DEC] = "CBC_DEC",
+    [UAES_BM_MODE_OFB] = "OFB",         [UAES_BM_MODE_CTR] = "CTR",
+    [UAES_BM_MODE_CFB128] = "CFB128",   [UAES_BM_MODE_CFB8] = "CFB8",
+    [UAES_BM_MODE_CFB1] = "CFB1",       [UAES_BM_MODE_CCM] = "CCM",
+    [UAES_BM_MODE_GCM] = "GCM",
+};
+
+typedef struct {
+    UAES_BM_Mode_t mode;
+    size_t key_len;
+    size_t size_of_ctx;
+    size_t watermark_none;
+    size_t watermark_init;
+    size_t watermark_process;
+    size_t watermark_full_process;
+    size_t watermark_simple_process;
+    size_t stack_usage1;
+    size_t stack_usage2;
+    size_t speed;
+} UAES_BM_Info_t;
+
+// Do benchmarking and write the result to the result pointer.
+// To test speed, the UAES_TP_GetTimeMs must be implemented.
+// For a more accurate result, make sure the task running the benchmark is
+// running in a high priority.
+// To test stack usage, the UAES_TP_GetStackWaterMark must be implemented.
+// Further more, a new task should be created to run the benchmark, so that the
+// stack usage is not affected by the main task or other benchmark tasks.
+extern void UAES_Benchmark(UAES_BM_Info_t *info);
+
+// Do benchmarking for all modes. UAES_TP_LogBenchmarkTitle and
+// UAES_TP_LogBenchmarkResult should be implemented to print the result.
+extern void UAES_BenchmarkAll(void);
 
 #endif // UAES_BENCHMARK_H_
