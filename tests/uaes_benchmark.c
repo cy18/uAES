@@ -42,7 +42,7 @@ const uint8_t KEY[32u] = { 0x60, 0x3d, 0xeb, 0x10, 0x15, 0xca, 0x71, 0xbe,
 const uint8_t IV[16u] = { 0 };
 static uint8_t s_data[BLOCK_SIZE] = { 0 };
 
-#if UAES_ENABLE_ECB_ENCRYPT
+#if UAES_ENABLE_ECB
 static uint32_t TestEcbEncrypt(bool init, size_t key_len)
 {
     static UAES_ECB_Ctx_t ctx;
@@ -54,9 +54,6 @@ static uint32_t TestEcbEncrypt(bool init, size_t key_len)
         return BLOCK_SIZE;
     }
 }
-#endif
-
-#if UAES_ENABLE_ECB_DECRYPT
 static uint32_t TestEcbDecrypt(bool init, size_t key_len)
 {
     static UAES_ECB_Ctx_t ctx;
@@ -70,7 +67,7 @@ static uint32_t TestEcbDecrypt(bool init, size_t key_len)
 }
 #endif
 
-#if UAES_ENABLE_CBC_ENCRYPT
+#if UAES_ENABLE_CBC
 static uint32_t TestCbcEncrypt(bool init, size_t key_len)
 {
     static UAES_CBC_Ctx_t ctx;
@@ -82,9 +79,6 @@ static uint32_t TestCbcEncrypt(bool init, size_t key_len)
         return BLOCK_SIZE;
     }
 }
-#endif
-
-#if UAES_ENABLE_CBC_DECRYPT
 static uint32_t TestCbcDecrypt(bool init, size_t key_len)
 {
     static UAES_CBC_Ctx_t ctx;
@@ -98,6 +92,60 @@ static uint32_t TestCbcDecrypt(bool init, size_t key_len)
 }
 #endif
 
+#if UAES_ENABLE_OFB
+static uint32_t TestOfb(bool init, size_t key_len)
+{
+    static UAES_OFB_Ctx_t ctx;
+    if (init) {
+        UAES_OFB_Init(&ctx, KEY, key_len, IV);
+        return 0u;
+    } else {
+        UAES_OFB_Encrypt(&ctx, s_data, s_data, BLOCK_SIZE);
+        return BLOCK_SIZE;
+    }
+}
+#endif
+
+#if UAES_ENABLE_CFB
+static uint32_t TestCfb8(bool init, size_t key_len)
+{
+    static UAES_CFB_Ctx_t ctx;
+    if (init) {
+        UAES_CFB_Init(&ctx, 8u, KEY, key_len, IV);
+        return 0u;
+    } else {
+        UAES_CFB_Encrypt(&ctx, s_data, s_data, BLOCK_SIZE);
+        return BLOCK_SIZE;
+    }
+}
+static uint32_t TestCfb128(bool init, size_t key_len)
+{
+    static UAES_CFB_Ctx_t ctx;
+    if (init) {
+        UAES_CFB_Init(&ctx, 128u, KEY, key_len, IV);
+        return 0u;
+    } else {
+        UAES_CFB_Encrypt(&ctx, s_data, s_data, BLOCK_SIZE);
+        return BLOCK_SIZE;
+    }
+}
+#endif
+
+#if UAES_ENABLE_CFB1
+static uint32_t TestCfb1(bool init, size_t key_len)
+{
+    static UAES_CFB1_Ctx_t ctx;
+    if (init) {
+        UAES_CFB1_Init(&ctx, KEY, key_len, IV);
+        return 0u;
+    } else {
+        UAES_CFB1_Encrypt(&ctx, s_data, s_data, BLOCK_SIZE);
+        return BLOCK_SIZE;
+    }
+}
+#endif
+
+#if UAES_ENABLE_CTR
 static uint32_t TestCtr(bool init, size_t key_len)
 {
     static UAES_CTR_Ctx_t ctx;
@@ -109,6 +157,7 @@ static uint32_t TestCtr(bool init, size_t key_len)
         return BLOCK_SIZE;
     }
 }
+#endif
 
 #if UAES_ENABLE_CCM
 static uint32_t TestCcm(bool init, size_t key_len)
@@ -142,24 +191,38 @@ static uint32_t TestGcm(bool init, size_t key_len)
 uint32_t UAES_Benchmark(UAES_BM_Mode_t mode, size_t key_len)
 {
     uint32_t (*func_test)(bool, size_t) = NULL;
-#if UAES_ENABLE_ECB_ENCRYPT
+#if UAES_ENABLE_ECB
     if (mode == UAES_BM_MODE_ECB_ENC) {
         func_test = TestEcbEncrypt;
     }
-#endif
-#if UAES_ENABLE_ECB_DECRYPT
     if (mode == UAES_BM_MODE_ECB_DEC) {
         func_test = TestEcbDecrypt;
     }
 #endif
-#if UAES_ENABLE_CBC_ENCRYPT
+#if UAES_ENABLE_CBC
     if (mode == UAES_BM_MODE_CBC_ENC) {
         func_test = TestCbcEncrypt;
     }
-#endif
-#if UAES_ENABLE_CBC_DECRYPT
     if (mode == UAES_BM_MODE_CBC_DEC) {
         func_test = TestCbcDecrypt;
+    }
+#endif
+#if UAES_ENABLE_OFB
+    if (mode == UAES_BM_MODE_OFB) {
+        func_test = TestOfb;
+    }
+#endif
+#if UAES_ENABLE_CFB
+    if (mode == UAES_BM_MODE_CFB128) {
+        func_test = TestCfb128;
+    }
+    if (mode == UAES_BM_MODE_CFB8) {
+        func_test = TestCfb8;
+    }
+#endif
+#if UAES_ENABLE_CFB1
+    if (mode == UAES_BM_MODE_CFB1) {
+        func_test = TestCfb1;
     }
 #endif
 #if UAES_ENABLE_CTR
