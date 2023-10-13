@@ -2052,10 +2052,10 @@ static void EnsureSboxInitialized(void)
             s_rsbox[s_sbox[p]] = p;
 #endif
         } while (p != 1u);
-        s_sbox[0] = 0x63u;
 #if ENABLE_INV_CIPHER
         s_rsbox[0x63u] = 0u;
 #endif
+        s_sbox[0] = 0x63u;
     }
 }
 #endif
