@@ -70,9 +70,13 @@
  * equals to the size of the round key minus the size of the original key. It is
  * 160 bytes for 128-bit key, 184 bytes for 192-bit key, and 208 bytes for
  * 256-bit key.
+ *
+ * Since RAM is usually more expensive than flash, and a big context is risky
+ * for stack overflow, the default value of this option is set to 0.
+ *
  */
 #ifndef UAES_STORE_ROUND_KEY_IN_CTX
-#define UAES_STORE_ROUND_KEY_IN_CTX 1
+#define UAES_STORE_ROUND_KEY_IN_CTX 0
 #endif
 
 /*
@@ -131,9 +135,13 @@
  * The code size and speed may vary with different compilers and MCUs. The speed
  * can be tested with the benchmark program tests/uaes_benchmark.c on your
  * platform.
+ *
+ * Since performance is usually not a concern, the default value of this option
+ * is set to 0.
+ *
  */
 #ifndef UAES_32BIT_MODE
-#define UAES_32BIT_MODE 1
+#define UAES_32BIT_MODE 0
 #endif
 
 #ifndef UAES_ENABLE_ECB
