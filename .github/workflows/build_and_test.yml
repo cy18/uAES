@@ -1,0 +1,30 @@
+# Run build and tests using CMake
+name: CMake on multiple platforms
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Cppcheck
+      run: |
+        sudo apt-get update
+        sudo apt-get install cppcheck -y
+
+    - name: Configure CMake
+      run: >
+        cmake -B ${{github.workspace}}/build -DTEST_ALL_OPTIONS=1 -S ${{ github.workspace }}/tests
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build
+
+    - name: Test
+      run: cmake --build ${{github.workspace}}/build -t test
