@@ -28,7 +28,7 @@ find_program(CPPCHECK NAMES cppcheck)
 
 if(CPPCHECK)
     set_property(TARGET ${MAIN} PROPERTY EXPORT_COMPILE_COMMANDS "ON")
-    message("Cppcheck found, start configure Cppcheck")
+    message(VERBOSE "Cppcheck found, start configure Cppcheck")
 
     # Find misra.py based on location of Cppcheck
     # For example, if Cppcheck locates at /usr/bin/cppcheck, then try find misra.py in /usr
@@ -38,7 +38,7 @@ if(CPPCHECK)
     )
 
     if(MISRA_ADDON)
-        message("Use addon " ${MISRA_ADDON})
+        message(VERBOSE "Use addon " ${MISRA_ADDON})
     else()
         message(FATAL_ERROR "Cppcheck addon misra.py not found in " ${FIND_ADDON_PATH})
     endif()
@@ -63,7 +63,7 @@ if(CPPCHECK)
         "--cppcheck-build-dir=${CMAKE_CURRENT_BINARY_DIR}/cppcheck_build_dir"
         "--platform=unspecified"
     )
-    message("CPPCheck command: " "${CPPCHECK}")
+    message(VERBOSE "CPPCheck command: " "${CPPCHECK}")
 
     # Create cppcheck build dir
     file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/cppcheck_build_dir")
