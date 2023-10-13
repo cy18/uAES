@@ -31,7 +31,7 @@ project(uaes C)
 
 enable_testing()
 
-add_compile_options(-Os -Wall -Wextra -Wpedantic)
+add_compile_options(-O3 -Wall -Wextra -Wpedantic)
 
 # CMake does not support add upper level directory with add_subdirectory.
 # So we create another library named uaes here.
