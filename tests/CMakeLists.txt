@@ -92,6 +92,19 @@ if(NOT UAES_DISABLE_NIST)
     set_tests_properties(test_nist PROPERTIES LABELS "nist")
 endif()
 
+if(ENABLE_BENCHMARK)
+    add_executable(benchmark
+        uaes_benchmark.c
+        uaes_benchmark_main.c
+        uaes_test_port_pc.c
+    )
+    target_link_libraries(benchmark uaes)
+    add_custom_target(run_benchmark
+        COMMAND benchmark
+        DEPENDS benchmark
+    )
+endif()
+
 if(TEST_ALL_OPTIONS)
     set(AES_MODES
         ECB
