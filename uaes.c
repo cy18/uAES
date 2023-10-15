@@ -1215,7 +1215,7 @@ static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len)
         ctx->keysize_word = (uint8_t)(UAES_MAX_KEY_SIZE / 32u);
     }
 #if UAES_32BIT_MODE == 0
-    (void)memcpy(ctx->key, key, key_len);
+    (void)memcpy(ctx->key, key, ctx->keysize_word * 4u);
 #else
     for (uint8_t i = 0u; i < ctx->keysize_word; ++i) {
         ctx->key[i] = 0u;
