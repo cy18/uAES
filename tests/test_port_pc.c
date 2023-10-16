@@ -25,7 +25,8 @@
  *
  */
 
-#include "uaes_test_port.h"
+#include "test_port.h"
+#include "uaes.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -55,6 +56,31 @@ void UAES_TP_LogBytes(const char *prompt, const uint8_t *bytes, size_t len)
     printf("\n");
 }
 
+void UAES_TP_LogBenchmarkTitle(void)
+{
+    printf("mode\tRKMode\t32BIT\tSBox\tKey_len\tCTX\tW_NONE\tW_INIT\tW_PROC\tW_FULL\tW_SMP\tStack1\tStack2\tSpeed\t\n");
+}
+
+// Print the benchmark result
+void UAES_TP_LogBenchmarkInfo(const UAES_BM_Info_t *bm_info)
+{
+    printf("%s\t%d\t%d\t%d\t%zu\t%zu\t%zu\t%zu\t%zu\t%zu\t%zu\t%zu\t%zu\t%zu\t\n",
+           UAES_BM_MODE_STR[bm_info->mode],
+           UAES_STORE_ROUND_KEY_IN_CTX,
+           UAES_32BIT_MODE,
+           UAES_SBOX_MODE,
+           bm_info->key_len * 8u,
+           bm_info->size_of_ctx,
+           bm_info->watermark_none,
+           bm_info->watermark_init,
+           bm_info->watermark_process,
+           bm_info->watermark_full_process,
+           bm_info->watermark_simple_process,
+           bm_info->stack_usage1,
+           bm_info->stack_usage2,
+           bm_info->speed);
+}
+
 uint32_t UAES_TP_GetTimeMs(void)
 {
     struct timespec ts;
@@ -66,4 +92,10 @@ uint32_t UAES_TP_GetTimeMs(void)
 size_t UAES_TP_GetStackWaterMark(void)
 {
     return 0u;
+}
+
+void UAES_TP_RunBenchmark(void (*func)(UAES_BM_Info_t *),
+                          UAES_BM_Info_t *bm_info)
+{
+    func(bm_info);
 }

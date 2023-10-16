@@ -76,8 +76,8 @@ include(cppcheck/cppcheck.cmake)
 # Run test_simple with default options
 add_executable(test_simple
     test_simple_main.c
-    uaes_test_port_pc.c
-    uaes_test_simple.c
+    test_port_pc.c
+    test_simple.c
 )
 target_link_libraries(test_simple uaes)
 add_test(NAME test_simple COMMAND test_simple)
@@ -85,11 +85,24 @@ set_tests_properties(test_simple PROPERTIES LABELS "simple")
 
 if(NOT UAES_DISABLE_NIST)
     # Test NIST
-    add_executable(test_nist uaes_test_nist.c)
+    add_executable(test_nist test_nist.c)
     target_link_libraries(test_nist uaes)
     target_compile_definitions(test_nist PRIVATE TEST_BASE_DIR="${CMAKE_SOURCE_DIR}")
     add_test(NAME test_nist COMMAND test_nist WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
     set_tests_properties(test_nist PROPERTIES LABELS "nist")
+endif()
+
+if(ENABLE_BENCHMARK)
+    add_executable(benchmark
+        benchmark.c
+        benchmark_main.c
+        test_port_pc.c
+    )
+    target_link_libraries(benchmark uaes)
+    add_custom_target(run_benchmark
+        COMMAND benchmark
+        DEPENDS benchmark
+    )
 endif()
 
 if(TEST_ALL_OPTIONS)

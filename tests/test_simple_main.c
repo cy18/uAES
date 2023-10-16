@@ -25,7 +25,7 @@
  *
  */
 
-#include "uaes_test_simple.h"
+#include "test_simple.h"
 
 #include <stdio.h>
 

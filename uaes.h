@@ -133,7 +133,7 @@
  * 386.4kBps to  1097.7kBps.
  *
  * The code size and speed may vary with different compilers and MCUs. The speed
- * can be tested with the benchmark program tests/uaes_benchmark.c on your
+ * can be tested with the benchmark program tests/benchmark.c on your
  * platform.
  *
  * Since performance is usually not a concern, the default value of this option
@@ -1120,14 +1120,9 @@ typedef struct {
  * @brief Initialize the context for AES GCM mode.
  *
  * The GCM mode is an authenticated encryption mode. It use CTR mode for
- * encryption and Galois mode for authentication. Generally, GCM mode is faster
- * than CCM mode. Further more, it supports parallel processing both encryption
- * and authentication.
- *
- * However, as a library focusing on MCU applications, this implementation
- * trades off speed for code and RAM size, making the GCM mode slower than CCM
- * mode. Furthermore, the GCM mode requires more code space than CCM mode. Thus,
- * the CCM mode is recommended over GCM mode if possible.
+ * encryption and Galois mode for authentication. GCM mode is faster than CCM
+ * mode. Further more, it supports parallel processing both encryption and
+ * authentication. However, GCM has larger code size than CCM.
  *
  * The GCM mode need an initialization vector (IV) at initialization. The IV is
  * generally considered public information. However, the IV should NEVER be
