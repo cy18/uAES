@@ -62,15 +62,21 @@ void UAES_TP_LogBenchmarkTitle(void)
 {
     SEGGER_RTT_printf(
             0,
-            "mode\tRKMode\t32BIT\tSBox\tKey_len\tCTX\tW_NONE\tW_INIT\tW_PROC\tW_FULL\tW_SMP\tStack1\tStack2\tSpeed\t\n");
+            "OptLv\tmode\tRKMode\t32BIT\tSBox\tKey_len\tCTX\tW_NONE\tW_INIT\tW_PROC\tW_FULL\tW_SMP\tStack1\tStack2\tSpeed\t\n");
 }
+
+// GCC_OPTIMIZE is passed from CMakeLists.txt
+#ifndef GCC_OPTIMIZE
+#define GCC_OPTIMIZE ""
+#endif
 
 // Print the benchmark result
 void UAES_TP_LogBenchmarkInfo(const UAES_BM_Info_t *bm_info)
 {
     SEGGER_RTT_printf(
             0,
-            "%s\t%d\t%d\t%d\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t\n",
+            "%s\t%s\t%d\t%d\t%d\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t\n",
+            GCC_OPTIMIZE,
             UAES_BM_MODE_STR[bm_info->mode],
             UAES_KEY_CONFIG,
             UAES_32BIT_CONFIG,
