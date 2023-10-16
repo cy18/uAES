@@ -502,6 +502,9 @@ void UAES_Benchmark(UAES_BM_Info_t *info)
     } else {
         info->speed = 0u;
     }
+    if (info->mode == UAES_BM_MODE_CFB1) {
+        info->speed /= 8u;
+    }
     info->stack_usage1 = info->watermark_none - info->watermark_full_process;
     info->stack_usage2 = info->watermark_none - info->watermark_simple_process;
 }
