@@ -27,7 +27,7 @@
 
 #include "uaes.h"
 
-#include "uaes_test_port.h"
+#include "test_port.h"
 
 #include <stdio.h> // cppcheck-suppress misra-c2012-21.6 ; supprssed for testing
 #include <stdlib.h>

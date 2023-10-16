@@ -133,7 +133,7 @@
  * 386.4kBps to  1097.7kBps.
  *
  * The code size and speed may vary with different compilers and MCUs. The speed
- * can be tested with the benchmark program tests/uaes_benchmark.c on your
+ * can be tested with the benchmark program tests/benchmark.c on your
  * platform.
  *
  * Since performance is usually not a concern, the default value of this option

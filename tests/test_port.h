@@ -31,7 +31,7 @@
 // In most cases, the tests should not fail, so the log functions are not
 // necessary. Just leave them empty.
 
-#include "uaes_benchmark.h"
+#include "benchmark.h"
 
 #include <stdint.h>
 #include <stdlib.h>

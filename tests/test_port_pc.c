@@ -25,8 +25,8 @@
  *
  */
 
+#include "test_port.h"
 #include "uaes.h"
-#include "uaes_test_port.h"
 
 #include <stdint.h>
 #include <stdio.h>

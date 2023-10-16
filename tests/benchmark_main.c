@@ -25,7 +25,7 @@
  *
  */
 
-#include "uaes_benchmark.h"
+#include "benchmark.h"
 
 int main(void)
 {

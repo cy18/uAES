@@ -24,10 +24,10 @@
  * github.com/cy18/uAES
  *
  */
-#include "uaes_benchmark.h"
+#include "benchmark.h"
 
+#include "test_port.h"
 #include "uaes.h"
-#include "uaes_test_port.h"
 
 #include <stdbool.h>
 #include <stddef.h>
