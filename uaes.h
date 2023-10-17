@@ -48,7 +48,7 @@
 #endif
 
 /*
- * UAES_STORE_ROUND_KEY_IN_CTX
+ * UAES_KEY_CONFIG
  * 0: Do not store the round key in the context.
  * 1: Store the round key in the context.
  * Default: 0
@@ -75,27 +75,27 @@
  * for stack overflow, the default value of this option is set to 0.
  *
  */
-#ifndef UAES_STORE_ROUND_KEY_IN_CTX
-#define UAES_STORE_ROUND_KEY_IN_CTX 0
+#ifndef UAES_KEY_CONFIG
+#define UAES_KEY_CONFIG 0
 #endif
 
 /*
- * UAES_SBOX_MODE
+ * UAES_SBOX_CONFIG
  *
  * A 8-bit substitution box (S-box) is used in the AES algorithm. Usually, it
  * can be archived by a constant 256-byte table. However, if the flash space is
  * limited, it can be generated on the fly or at initialization. The three
  * options are:
  *
- * UAES_SBOX_MODE = 0: Generate the S-box on the fly. This is very slow, but
+ * UAES_SBOX_CONFIG = 0: Generate the S-box on the fly. This is very slow, but
  * saves about 120 bytes of code space without additional RAM usage. On a 120MHz
  * Cortex-M4 MCU with arm-none-eabi-gcc -Os, the speed is reduced from 264.4kBps
  * to 11.5kBps. Only use this option if the speed is not important.
  *
- * UAES_SBOX_MODE = 1: Store the S-box as a constant table. This is the
+ * UAES_SBOX_CONFIG = 1: Store the S-box as a constant table. This is the
  * default option.
  *
- * UAES_SBOX_MODE = 2: Generate the S-box at initialization. The speed is the
+ * UAES_SBOX_CONFIG = 2: Generate the S-box at initialization. The speed is the
  * same as option 1. It saves about 172 bytes in code space but cost 256 bytes
  * of additional RAM to store the S-box. This option is recommended if the flash
  * space is limited while the RAM is not. One example is a bootloader.
@@ -107,12 +107,12 @@
  * requiring AES decryption, such as CBC, are enabled, a reverse S-box is also
  * needed. This would cost extra code space or RAM, depending on the option.
  */
-#ifndef UAES_SBOX_MODE
-#define UAES_SBOX_MODE 1
+#ifndef UAES_SBOX_CONFIG
+#define UAES_SBOX_CONFIG 1
 #endif
 
 /*
- * UAES_32BIT_MODE
+ * UAES_32BIT_CONFIG
  *
  * 0: Use 8-bit operations for AES when possible. Recommended for 8-bit MCU or
  * the Flash space is limited.
@@ -124,11 +124,11 @@
  * MCU, it may be slower and larger.
  *
  * On a 120MHz Cortex-M4 MCU with arm-none-eabi-gcc -Os with only CTR mode, the
- * code size is 950 bytes for UAES_32BIT_MODE = 0 and 1038 bytes for
- * UAES_32BIT_MODE = 0. The speed is 300.0kBps for UAES_32BIT_MODE = 0 and
- * 386.4kBps for UAES_32BIT_MODE = 1.
+ * code size is 950 bytes for UAES_32BIT_CONFIG = 0 and 1038 bytes for
+ * UAES_32BIT_CONFIG = 0. The speed is 300.0kBps for UAES_32BIT_CONFIG = 0 and
+ * 386.4kBps for UAES_32BIT_CONFIG = 1.
  *
- * When the speed is important, using -O3 together with UAES_32BIT_MODE = 1 is
+ * When the speed is important, using -O3 together with UAES_32BIT_CONFIG = 1 is
  * recommended. On the same 120MHz Cortex-M4 MCU, the speed increased from
  * 386.4kBps to  1097.7kBps.
  *
@@ -140,8 +140,8 @@
  * is set to 0.
  *
  */
-#ifndef UAES_32BIT_MODE
-#define UAES_32BIT_MODE 0
+#ifndef UAES_32BIT_CONFIG
+#define UAES_32BIT_CONFIG 0
 #endif
 
 #ifndef UAES_ENABLE_ECB
@@ -190,12 +190,12 @@
 #error "No key size specified."
 #endif
 
-#if UAES_32BIT_MODE == 0
+#if UAES_32BIT_CONFIG == 0
 typedef struct {
     // The number of 32-bit word of AES key.
     // It is 4 for AES128, 6 for AES192, and 8 for AES256.
     uint8_t keysize_word;
-#if UAES_STORE_ROUND_KEY_IN_CTX == 0
+#if UAES_KEY_CONFIG == 0
     uint8_t key[UAES_MAX_KEY_SIZE / 8u];
 #else
     uint8_t key[((UAES_MAX_KEY_SIZE / 32u) + 7u) * 16u];
@@ -206,13 +206,13 @@ typedef struct {
     // The number of 32-bit word of AES key.
     // It is 4 for AES128, 6 for AES192, and 8 for AES256.
     uint8_t keysize_word;
-#if UAES_STORE_ROUND_KEY_IN_CTX == 0
+#if UAES_KEY_CONFIG == 0
     uint32_t key[UAES_MAX_KEY_SIZE / 32u];
 #else
     uint32_t key[((UAES_MAX_KEY_SIZE / 32u) + 7u) * 4u];
 #endif
 } UAES_AES_Ctx_t;
-#endif // UAES_32BIT_MODE == 0
+#endif // UAES_32BIT_CONFIG == 0
 
 #if UAES_ENABLE_ECB
 typedef struct {

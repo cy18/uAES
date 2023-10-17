@@ -46,19 +46,19 @@ if(DEFINED UAES_DEFAULT_CONFIG)
     set(name_prefix "${name_prefix}_D${UAES_DEFAULT_CONFIG}")
 endif()
 
-if(DEFINED UAES_STORE_ROUND_KEY_IN_CTX)
-    target_compile_definitions(uaes PUBLIC UAES_STORE_ROUND_KEY_IN_CTX=${UAES_STORE_ROUND_KEY_IN_CTX})
-    set(name_prefix "${name_prefix}_R${UAES_STORE_ROUND_KEY_IN_CTX}")
+if(DEFINED UAES_KEY_CONFIG)
+    target_compile_definitions(uaes PUBLIC UAES_KEY_CONFIG=${UAES_KEY_CONFIG})
+    set(name_prefix "${name_prefix}_R${UAES_KEY_CONFIG}")
 endif()
 
-if(DEFINED UAES_SBOX_MODE)
-    target_compile_definitions(uaes PUBLIC UAES_SBOX_MODE=${UAES_SBOX_MODE})
-    set(name_prefix "${name_prefix}_S${UAES_SBOX_MODE}")
+if(DEFINED UAES_SBOX_CONFIG)
+    target_compile_definitions(uaes PUBLIC UAES_SBOX_CONFIG=${UAES_SBOX_CONFIG})
+    set(name_prefix "${name_prefix}_S${UAES_SBOX_CONFIG}")
 endif()
 
-if(DEFINED UAES_32BIT_MODE)
-    target_compile_definitions(uaes PUBLIC UAES_32BIT_MODE=${UAES_32BIT_MODE})
-    set(name_prefix "${name_prefix}_W${UAES_32BIT_MODE}")
+if(DEFINED UAES_32BIT_CONFIG)
+    target_compile_definitions(uaes PUBLIC UAES_32BIT_CONFIG=${UAES_32BIT_CONFIG})
+    set(name_prefix "${name_prefix}_W${UAES_32BIT_CONFIG}")
 endif()
 
 if(DEFINED UAES_KEY_SIZE)
@@ -118,24 +118,24 @@ if(TEST_ALL_OPTIONS)
     )
 
     # Test different modes and key sizes for test_simple
-    foreach(STORE_ROUND_KEY_IN_CTX 0 1)
-        foreach(SBOX_MODE 0 1 2)
-            foreach(U32BIT_MODE 0 1)
+    foreach(KEY_CONFIG 0 1)
+        foreach(SBOX_CONFIG 0 1 2)
+            foreach(U32BIT_CONFIG 0 1)
                 foreach(AES_MODE ${AES_MODES})
                     foreach(KEY_SIZE 128 192 256)
                         set(name "test_simple")
-                        set(name "${name}_R${STORE_ROUND_KEY_IN_CTX}")
-                        set(name "${name}_S${SBOX_MODE}")
-                        set(name "${name}_W${U32BIT_MODE}")
+                        set(name "${name}_R${KEY_CONFIG}")
+                        set(name "${name}_S${SBOX_CONFIG}")
+                        set(name "${name}_W${U32BIT_CONFIG}")
                         set(name "${name}_M${AES_MODE}")
                         set(name "${name}_K${KEY_SIZE}")
                         add_custom_target(${name} ALL
                             ${CMAKE_COMMAND} -B ${CMAKE_BINARY_DIR}/${name}
                             ${CMAKE_CURRENT_SOURCE_DIR}
                             -DUAES_DEFAULT_CONFIG=0
-                            -DUAES_STORE_ROUND_KEY_IN_CTX=${STORE_ROUND_KEY_IN_CTX}
-                            -DUAES_SBOX_MODE=${SBOX_MODE}
-                            -DUAES_32BIT_MODE=${U32BIT_MODE}
+                            -DUAES_KEY_CONFIG=${KEY_CONFIG}
+                            -DUAES_SBOX_CONFIG=${SBOX_CONFIG}
+                            -DUAES_32BIT_CONFIG=${U32BIT_CONFIG}
                             -DUAES_KEY_SIZE=${KEY_SIZE}
                             -DUAES_AES_MODE=${AES_MODE}
                             -DUAES_DISABLE_NIST=1
@@ -151,19 +151,19 @@ if(TEST_ALL_OPTIONS)
     endforeach()
 
     # To reduce the number of tests, we only test NIST with all modes and key sizes turned on.
-    foreach(STORE_ROUND_KEY_IN_CTX 0 1)
-        foreach(SBOX_MODE 0 1 2)
-            foreach(U32BIT_MODE 0 1)
+    foreach(KEY_CONFIG 0 1)
+        foreach(SBOX_CONFIG 0 1 2)
+            foreach(U32BIT_CONFIG 0 1)
                 set(name "test")
-                set(name "${name}_R${STORE_ROUND_KEY_IN_CTX}")
-                set(name "${name}_S${SBOX_MODE}")
-                set(name "${name}_W${U32BIT_MODE}")
+                set(name "${name}_R${KEY_CONFIG}")
+                set(name "${name}_S${SBOX_CONFIG}")
+                set(name "${name}_W${U32BIT_CONFIG}")
                 add_custom_target(${name} ALL
                     ${CMAKE_COMMAND} -B ${CMAKE_BINARY_DIR}/${name}
                     ${CMAKE_CURRENT_SOURCE_DIR}
-                    -DUAES_STORE_ROUND_KEY_IN_CTX=${STORE_ROUND_KEY_IN_CTX}
-                    -DUAES_SBOX_MODE=${SBOX_MODE}
-                    -DUAES_32BIT_MODE=${U32BIT_MODE}
+                    -DUAES_KEY_CONFIG=${KEY_CONFIG}
+                    -DUAES_SBOX_CONFIG=${SBOX_CONFIG}
+                    -DUAES_32BIT_CONFIG=${U32BIT_CONFIG}
                     -DCMAKE_MESSAGE_LOG_LEVEL=WARNING
                     COMMAND
                     ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}/${name}

@@ -66,9 +66,9 @@ void UAES_TP_LogBenchmarkInfo(const UAES_BM_Info_t *bm_info)
 {
     printf("%s\t%d\t%d\t%d\t%zu\t%zu\t%zu\t%zu\t%zu\t%zu\t%zu\t%zu\t%zu\t%zu\t\n",
            UAES_BM_MODE_STR[bm_info->mode],
-           UAES_STORE_ROUND_KEY_IN_CTX,
-           UAES_32BIT_MODE,
-           UAES_SBOX_MODE,
+           UAES_KEY_CONFIG,
+           UAES_32BIT_CONFIG,
+           UAES_SBOX_CONFIG,
            bm_info->key_len * 8u,
            bm_info->size_of_ctx,
            bm_info->watermark_none,
