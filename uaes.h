@@ -58,11 +58,11 @@
  * 128/192/256 bit key. Typically, it is generated at initialization and stored
  * in the context.
  *
- * To reduce the RAM usage, this library allows the round key to be generated on
- * the fly when needed. This saves some RAM, but cost more code space and CPU
- * time. On a 120MHz Cortex-M4 MCU with arm-none-eabi-gcc -Os, the code size
- * is increased by 72 bytes and the speed reduced from 252.1kBps to 167.4kBps
- * (about 33% slower).
+ * To reduce the RAM usage, this library generate the round key on the fly by
+ * default. This saves some RAM, but cost more code space and CPU time. On a
+ * 120MHz Cortex-M4 MCU with arm-none-eabi-gcc -Os, the speeds are 126.9kBps
+ * and 269.1kBps for UAES_KEY_CONFIG = 0 and UAES_KEY_CONFIG = 1 respectively.
+ * Refer to tests/benchmark_result.md for a complete comparison.
  *
  * The reduced RAM usage depends on the maximum key size enabled (may be
  * larger than key_len given at initialization). Since the original key is no
@@ -97,12 +97,14 @@
  *
  * Generating the S-box on the fly is very slow, but saves about 120 bytes of
  * code space without additional RAM usage. On a 120MHz Cortex-M4 MCU with
- * arm-none-eabi-gcc -Os, the speed is reduced from 264.4kBps to 11.5kBps. Only
- * use this option if the speed is not important.
+ * arm-none-eabi-gcc -Os, the speed is reduced from 128.6kBps to 10.1kBps. Only
+ * use this option if the speed is not important. The result may vary with other
+ * options.
  *
  * Note that for ECB and CBC modes, a reverse S-box is also needed. The RAM and
- * code size differs. Refer to the benchmark result under tests for a complete
- * comparison.
+ * code size differs.
+ *
+ * Refer to tests/benchmark_result.md for a complete comparison.
  */
 #ifndef UAES_SBOX_CONFIG
 #define UAES_SBOX_CONFIG 0
@@ -122,20 +124,17 @@
  *
  * On a 120MHz Cortex-M4 MCU with arm-none-eabi-gcc -Os with only CTR mode, the
  * code size is 950 bytes for UAES_32BIT_CONFIG = 0 and 1038 bytes for
- * UAES_32BIT_CONFIG = 0. The speed is 300.0kBps for UAES_32BIT_CONFIG = 0 and
- * 386.4kBps for UAES_32BIT_CONFIG = 1.
+ * UAES_32BIT_CONFIG = 0. The speed is 126.9kBps for UAES_32BIT_CONFIG = 0 and
+ * 166.7kBps for UAES_32BIT_CONFIG = 1.
  *
- * When the speed is important, using -O3 together with UAES_32BIT_CONFIG = 1 is
- * recommended. On the same 120MHz Cortex-M4 MCU, the speed increased from
- * 386.4kBps to  1097.7kBps.
+ * When the speed is important, using -O3 with UAES_32BIT_CONFIG = 1 and
+ * UAES_KEY_CONFIG=1 is recommended. On the same 120MHz Cortex-M4 MCU, the speed
+ * increased from 326.2kBps to 1023.3kBps.
  *
- * The code size and speed may vary with different compilers and MCUs. The speed
- * can be tested with the benchmark program tests/benchmark.c on your
- * platform.
- *
- * Since performance is usually not a concern, the default value of this option
- * is set to 0.
- *
+ * The code size and speed may vary with different compilers and MCUs. Refer to
+ * tests/benchmark_result.md for a complete comparison. When the speed is the
+ * concern, it is highly recommended to use tests/benchmark.c to do benchmark
+ * with different options on your own environment.
  */
 #ifndef UAES_32BIT_CONFIG
 #define UAES_32BIT_CONFIG 0
