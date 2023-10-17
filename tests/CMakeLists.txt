@@ -41,9 +41,9 @@ target_include_directories(uaes PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../)
 
 set(name_prefix "")
 
-if(DEFINED UAES_DEFAULT_CONFIG)
-    target_compile_definitions(uaes PUBLIC UAES_DEFAULT_CONFIG=${UAES_DEFAULT_CONFIG})
-    set(name_prefix "${name_prefix}_D${UAES_DEFAULT_CONFIG}")
+if(DEFINED UAES_ENABLE_ALL)
+    target_compile_definitions(uaes PUBLIC UAES_ENABLE_ALL=${UAES_ENABLE_ALL})
+    set(name_prefix "${name_prefix}_D${UAES_ENABLE_ALL}")
 endif()
 
 if(DEFINED UAES_KEY_CONFIG)
@@ -132,7 +132,7 @@ if(TEST_ALL_OPTIONS)
                         add_custom_target(${name} ALL
                             ${CMAKE_COMMAND} -B ${CMAKE_BINARY_DIR}/${name}
                             ${CMAKE_CURRENT_SOURCE_DIR}
-                            -DUAES_DEFAULT_CONFIG=0
+                            -DUAES_ENABLE_ALL=0
                             -DUAES_KEY_CONFIG=${KEY_CONFIG}
                             -DUAES_SBOX_CONFIG=${SBOX_CONFIG}
                             -DUAES_32BIT_CONFIG=${U32BIT_CONFIG}
