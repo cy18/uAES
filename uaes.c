@@ -146,7 +146,7 @@ static void InvShiftRows(State_t state);
 #define ENABLE_WORD_TIMES_BYTE 0
 #endif
 #if ((UAES_32BIT_CONFIG == 0) && (ENABLE_INV_CIPHER == 1)) \
-        || (UAES_SBOX_CONFIG == 0)
+        || (UAES_SBOX_CONFIG == 2)
 #define ENABLE_BYTE_TIMES_BYTE 1
 #else
 #define ENABLE_BYTE_TIMES_BYTE 0
@@ -157,7 +157,7 @@ static void InvShiftRows(State_t state);
 #define ENABLE_WORD_TIMES_2 0
 #endif
 #if (UAES_32BIT_CONFIG == 0) || (ENABLE_BYTE_TIMES_BYTE == 1) \
-        || (UAES_SBOX_CONFIG == 2)
+        || (UAES_SBOX_CONFIG == 1)
 #define ENABLE_BYTE_TIMES_2 1
 #else
 #define ENABLE_BYTE_TIMES_2 0
@@ -181,16 +181,16 @@ static uint8_t SubByte(uint8_t x);
 static uint8_t InvSubByte(uint8_t x);
 #endif
 
-#if UAES_SBOX_CONFIG == 0
+#if UAES_SBOX_CONFIG == 2
 static uint8_t Gf28Div(uint16_t a, uint16_t b, uint16_t *p_remain);
 static uint8_t Gf28Inv(uint8_t x);
 #endif // UAES_STATIC_SBOX == 0
 
-#if (UAES_SBOX_CONFIG == 0) || (UAES_SBOX_CONFIG == 2)
+#if (UAES_SBOX_CONFIG == 2) || (UAES_SBOX_CONFIG == 1)
 static uint8_t SboxAffineTransform(uint8_t x);
 #endif
 
-#if UAES_SBOX_CONFIG == 2
+#if UAES_SBOX_CONFIG == 1
 static uint8_t s_sbox[256u] = { 0 };
 #if ENABLE_INV_CIPHER
 static uint8_t s_rsbox[256u] = { 0 };
@@ -198,7 +198,7 @@ static uint8_t s_rsbox[256u] = { 0 };
 static void EnsureSboxInitialized(void);
 #endif
 
-#if (ENABLE_INV_CIPHER == 1) && (UAES_SBOX_CONFIG == 0)
+#if (ENABLE_INV_CIPHER == 1) && (UAES_SBOX_CONFIG == 2)
 static uint8_t RSboxAffineTransform(uint8_t x);
 #endif
 
@@ -1189,7 +1189,7 @@ static void MixColumns(State_t state)
 // Initialize the context of AES cipher.
 static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len)
 {
-#if UAES_SBOX_CONFIG == 2
+#if UAES_SBOX_CONFIG == 1
     EnsureSboxInitialized();
 #endif
     // A valid key length is required as input.
@@ -1575,7 +1575,7 @@ static void MixColumns(State_t state)
 // Initialize the context of AES cipher.
 static void InitAesCtx(UAES_AES_Ctx_t *ctx, const uint8_t *key, size_t key_len)
 {
-#if UAES_SBOX_CONFIG == 2
+#if UAES_SBOX_CONFIG == 1
     EnsureSboxInitialized();
 #endif
     // A valid key length is required as input.
@@ -1892,7 +1892,7 @@ static uint8_t ByteTimesByte(uint8_t x, uint8_t b)
 // Substitute the byte with the value in the S-box.
 static uint8_t SubByte(uint8_t x)
 {
-#if UAES_SBOX_CONFIG == 0
+#if UAES_SBOX_CONFIG == 2
     uint8_t inv;
     if (x == 0u) {
         inv = 0u;
@@ -1900,7 +1900,7 @@ static uint8_t SubByte(uint8_t x)
         inv = Gf28Inv(x);
     }
     return SboxAffineTransform(inv);
-#elif UAES_SBOX_CONFIG == 1
+#elif UAES_SBOX_CONFIG == 0
     static const uint8_t SBOX[256] = {
         0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b,
         0xfe, 0xd7, 0xab, 0x76, 0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0,
@@ -1926,7 +1926,7 @@ static uint8_t SubByte(uint8_t x)
         0xb0, 0x54, 0xbb, 0x16
     };
     return SBOX[x];
-#elif UAES_SBOX_CONFIG == 2
+#elif UAES_SBOX_CONFIG == 1
     return s_sbox[x];
 #else
 #error "Invalid UAES_SBOX_CONFIG"
@@ -1937,7 +1937,7 @@ static uint8_t SubByte(uint8_t x)
 // Reverse of SubByte()
 static uint8_t InvSubByte(uint8_t x)
 {
-#if UAES_SBOX_CONFIG == 0
+#if UAES_SBOX_CONFIG == 2
     uint8_t ret;
     if (x == 0x63u) {
         ret = 0u;
@@ -1945,7 +1945,7 @@ static uint8_t InvSubByte(uint8_t x)
         ret = Gf28Inv(RSboxAffineTransform(x));
     }
     return ret;
-#elif UAES_SBOX_CONFIG == 1
+#elif UAES_SBOX_CONFIG == 0
     static const uint8_t RSBOX[256] = {
         0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e,
         0x81, 0xf3, 0xd7, 0xfb, 0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87,
@@ -1971,7 +1971,7 @@ static uint8_t InvSubByte(uint8_t x)
         0x55, 0x21, 0x0c, 0x7d
     };
     return RSBOX[x];
-#elif UAES_SBOX_CONFIG == 2
+#elif UAES_SBOX_CONFIG == 1
     return s_rsbox[x];
 #else
 #error "Invalid UAES_SBOX_CONFIG"
@@ -1979,7 +1979,7 @@ static uint8_t InvSubByte(uint8_t x)
 }
 #endif // ENABLE_INV_CIPHER
 
-#if UAES_SBOX_CONFIG == 0
+#if UAES_SBOX_CONFIG == 2
 // Compute a / b in GF(2^8), and return the quotient and remainder.
 static uint8_t Gf28Div(uint16_t a, uint16_t b, uint16_t *p_remain)
 {
@@ -2019,7 +2019,7 @@ static uint8_t Gf28Inv(uint8_t x)
 }
 #endif // UAES_STATIC_SBOX == 0
 
-#if (UAES_SBOX_CONFIG == 0) || (UAES_SBOX_CONFIG == 2)
+#if (UAES_SBOX_CONFIG == 2) || (UAES_SBOX_CONFIG == 1)
 // The affine transformation in the S-box.
 static uint8_t SboxAffineTransform(uint8_t x)
 {
@@ -2031,7 +2031,7 @@ static uint8_t SboxAffineTransform(uint8_t x)
 }
 #endif
 
-#if UAES_SBOX_CONFIG == 2
+#if UAES_SBOX_CONFIG == 1
 // Initialize the S-box if it is not initialized.
 static void EnsureSboxInitialized(void)
 {
@@ -2060,7 +2060,7 @@ static void EnsureSboxInitialized(void)
 }
 #endif
 
-#if (ENABLE_INV_CIPHER == 1) && (UAES_SBOX_CONFIG == 0)
+#if (ENABLE_INV_CIPHER == 1) && (UAES_SBOX_CONFIG == 2)
 // Reverse of SboxAffineTransform()
 static uint8_t RSboxAffineTransform(uint8_t x)
 {
