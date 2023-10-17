@@ -62,7 +62,7 @@ void UAES_TP_LogBenchmarkTitle(void)
 {
     SEGGER_RTT_printf(
             0,
-            "OptLv\tmode\tRKMode\t32BIT\tSBox\tKey_len\tCTX\tW_NONE\tW_INIT\tW_PROC\tW_FULL\tW_SMP\tStack1\tStack2\tSpeed\t\n");
+            "OptLv\tMode\tKeyCfg\t32Bit\tSBox\tKeyLen\tCtxSize\tStkNone\tStkInit\tStkProc\tStkFull\tStkSmp\tStack1\tStack2\tSpeed\t\n");
 }
 
 // GCC_OPTIMIZE is passed from CMakeLists.txt
