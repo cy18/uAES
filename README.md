@@ -2,6 +2,8 @@
 
 uAES (Micro AES) is a compact yet fully-featured AES library. It is primarily designed for Micro Controllers (MCUs), but can also be used on other platforms.
 
+The accepted design direction prioritizes small and predictable Flash and RAM usage on resource-constrained MCUs. Performance and additional runtime diagnostics are compile-time trade-offs, while cryptographic correctness, memory safety, and authentication integrity are requirements rather than optional trade-offs. See [DESIGN.md](DESIGN.md) for the design goals and principles that guide ongoing maintenance.
+
 ## Table of Contents
 - [uAES (Micro AES)](#uaes-micro-aes)
   - [Table of Contents](#table-of-contents)
