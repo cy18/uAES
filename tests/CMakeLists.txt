@@ -31,7 +31,13 @@ project(uaes C)
 
 enable_testing()
 
-add_compile_options(-O3 -Wall -Wextra -Wpedantic)
+option(UAES_ENABLE_CPPCHECK "Run Cppcheck as part of the build" OFF)
+
+if(MSVC)
+    add_compile_options(/W4)
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
 # CMake does not support add upper level directory with add_subdirectory.
 # So we create another library named uaes here.
@@ -71,7 +77,9 @@ if(DEFINED UAES_AES_MODE)
     set(name_prefix "${name_prefix}_M${UAES_AES_MODE}")
 endif()
 
-include(cppcheck/cppcheck.cmake)
+if(UAES_ENABLE_CPPCHECK)
+    include(cppcheck/cppcheck.cmake)
+endif()
 
 # Run test_simple with default options
 add_executable(test_simple
@@ -139,6 +147,7 @@ if(TEST_ALL_OPTIONS)
                             -DUAES_KEY_SIZE=${KEY_SIZE}
                             -DUAES_AES_MODE=${AES_MODE}
                             -DUAES_DISABLE_NIST=1
+                            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                             -DCMAKE_MESSAGE_LOG_LEVEL=WARNING
                             COMMAND
                             ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}/${name}
@@ -164,6 +173,7 @@ if(TEST_ALL_OPTIONS)
                     -DUAES_KEY_CONFIG=${KEY_CONFIG}
                     -DUAES_SBOX_CONFIG=${SBOX_CONFIG}
                     -DUAES_32BIT_CONFIG=${U32BIT_CONFIG}
+                    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                     -DCMAKE_MESSAGE_LOG_LEVEL=WARNING
                     COMMAND
                     ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}/${name}

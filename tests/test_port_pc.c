@@ -30,7 +30,12 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
 #include <time.h>
+#endif
 
 void UAES_TP_Init(void)
 {
@@ -83,10 +88,14 @@ void UAES_TP_LogBenchmarkInfo(const UAES_BM_Info_t *bm_info)
 
 uint32_t UAES_TP_GetTimeMs(void)
 {
+#if defined(_WIN32)
+    return (uint32_t)GetTickCount64();
+#else
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     uint64_t ms = ts.tv_sec * 1000u + ts.tv_nsec / 1000000u;
     return (uint32_t)ms;
+#endif
 }
 
 size_t UAES_TP_GetStackWaterMark(void)

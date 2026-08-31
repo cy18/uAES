@@ -36,6 +36,18 @@
 static size_t s_pass_num = 0u;
 static size_t s_fail_num = 0u;
 
+#define TEST_DATA_MAX_LEN 64u
+
+static bool CheckTestDataLength(size_t data_len)
+{
+    if (data_len > TEST_DATA_MAX_LEN) {
+        UAES_TP_LogNumber("Test data is too long:", (int32_t)data_len);
+        s_fail_num++;
+        return false;
+    }
+    return true;
+}
+
 static void CheckData(const uint8_t *expected,
                       const uint8_t *actual,
                       size_t len,
@@ -86,9 +98,12 @@ static void TestEcbCase(const uint8_t *KEY,
                         size_t data_len)
 {
     UAES_ECB_Ctx_t ctx;
+    uint8_t result[TEST_DATA_MAX_LEN];
+    if (!CheckTestDataLength(data_len)) {
+        return;
+    }
     // Encrypt
     UAES_ECB_Init(&ctx, KEY, key_len);
-    uint8_t result[data_len];
     UAES_ECB_Encrypt(&ctx, IN, result, data_len);
     CheckData(OUT, result, data_len, "UAES_ECB_Encrypt");
     UAES_ECB_SimpleEncrypt(KEY, key_len, IN, result, data_len);
@@ -149,7 +164,10 @@ static void TestCbcCase(const uint8_t *KEY,
 {
     (void)iv_len;
     UAES_CBC_Ctx_t ctx;
-    uint8_t result[data_len];
+    uint8_t result[TEST_DATA_MAX_LEN];
+    if (!CheckTestDataLength(data_len)) {
+        return;
+    }
     // Encrypt
     UAES_CBC_Init(&ctx, KEY, key_len, IV);
     (void)memcpy(result, IN, data_len);
@@ -239,8 +257,11 @@ static void TestCfbCase(const uint8_t *KEY,
                         size_t data_len,
                         uint8_t segment_size)
 {
-    uint8_t result[data_len];
+    uint8_t result[TEST_DATA_MAX_LEN];
     UAES_CFB_Ctx_t ctx;
+    if (!CheckTestDataLength(data_len)) {
+        return;
+    }
 
     // Encrypt whole array at once
     UAES_CFB_Init(&ctx, segment_size, KEY, key_len, IV);
@@ -510,8 +531,11 @@ static void TestOfbCase(const uint8_t *KEY,
                         const uint8_t *CT,
                         size_t data_len)
 {
-    uint8_t result[data_len];
+    uint8_t result[TEST_DATA_MAX_LEN];
     UAES_OFB_Ctx_t ctx;
+    if (!CheckTestDataLength(data_len)) {
+        return;
+    }
 
     // Encrypt whole array at once
     UAES_OFB_Init(&ctx, KEY, key_len, IV);
@@ -637,8 +661,11 @@ static void TestCtrCase(const uint8_t *KEY,
                         const uint8_t *OUT,
                         size_t data_len)
 {
-    uint8_t result[data_len];
+    uint8_t result[TEST_DATA_MAX_LEN];
     UAES_CTR_Ctx_t ctx;
+    if (!CheckTestDataLength(data_len)) {
+        return;
+    }
 
     // Encrypt whole array at once
     UAES_CTR_Init(&ctx, KEY, key_len, NONCE, nonce_len);
@@ -788,8 +815,11 @@ static void TestCcmCase(const uint8_t *KEY,
                         size_t tag_len)
 {
     uint8_t tag_out[16];
-    uint8_t result[data_len];
+    uint8_t result[TEST_DATA_MAX_LEN];
     UAES_CCM_Ctx_t ctx;
+    if (!CheckTestDataLength(data_len)) {
+        return;
+    }
     // Test encryption at once
     UAES_CCM_Init(&ctx, KEY, key_len, NONCE, nonce_len, 0u, data_len, tag_len);
     UAES_CCM_Encrypt(&ctx, IN, result, data_len);
@@ -1006,8 +1036,11 @@ static void TestCcmWithAadCase(const uint8_t *KEY,
                                size_t tag_len)
 {
     uint8_t tag_out[16];
-    uint8_t result[data_len];
+    uint8_t result[TEST_DATA_MAX_LEN];
     UAES_CCM_Ctx_t ctx;
+    if (!CheckTestDataLength(data_len)) {
+        return;
+    }
     // Test encryption at once
     UAES_CCM_Init(&ctx,
                   KEY,
@@ -1294,8 +1327,11 @@ static void TestGcmCase(const uint8_t *KEY,
                         size_t tag_len)
 {
     UAES_GCM_Ctx_t ctx;
-    uint8_t result[data_len];
+    uint8_t result[TEST_DATA_MAX_LEN];
     uint8_t tag_out[16];
+    if (!CheckTestDataLength(data_len)) {
+        return;
+    }
     // Test encryption at once
     UAES_GCM_Init(&ctx, KEY, key_len, IV, iv_len);
     UAES_GCM_AddAad(&ctx, AAD, aad_len);
