@@ -27,7 +27,6 @@ cmake_minimum_required(VERSION 3.12)
 find_program(CPPCHECK NAMES cppcheck)
 
 if(CPPCHECK)
-    set_property(TARGET ${MAIN} PROPERTY EXPORT_COMPILE_COMMANDS "ON")
     message(VERBOSE "Cppcheck found, start configure Cppcheck")
 
     # Find misra.py based on location of Cppcheck
@@ -72,7 +71,6 @@ if(CPPCHECK)
     add_custom_target(
         cppcheck ALL
         COMMAND ${CPPCHECK}
-        DEPENDS ${MAIN}
     )
 else()
     message(FATAL_ERROR "Cppcheck not found")
