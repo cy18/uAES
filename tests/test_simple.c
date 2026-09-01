@@ -29,6 +29,7 @@
 
 #include "test_port.h"
 
+#include <stdbool.h>
 #include <stdio.h> // cppcheck-suppress misra-c2012-21.6 ; supprssed for testing
 #include <stdlib.h>
 #include <string.h>
