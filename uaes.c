@@ -202,7 +202,7 @@ static void EnsureSboxInitialized(void);
 static uint8_t RSboxAffineTransform(uint8_t x);
 #endif
 
-#if (UAES_ENABLE_CTR != 0) || (UAES_ENABLE_CCM != 0) || (UAES_ENABLE_GCM != 0)
+#if (UAES_ENABLE_CTR != 0) || (UAES_ENABLE_CCM != 0)
 static void IterateKeyStream(const UAES_AES_Ctx_t *ctx,
                              uint8_t *counter,
                              uint8_t *key_stream);
@@ -1022,12 +1022,12 @@ void UAES_GCM_GenerateTag(const UAES_GCM_Ctx_t *ctx,
     GCM_XorBitLength(hash_buf, ctx->aad_len);
     GCM_XorBitLength(&hash_buf[8u], ctx->data_len);
     Ghash(ctx, hash_buf, hash_buf);
-    // To save RAM, the counter0 is not stored in the context. Instead, it is
-    // recovered by subtracting the counter with data_len/16.
+    // To save RAM, J0 is recovered rather than stored in the context.
+    // Undo inc32 without borrowing into its upper 96 bits.
     uint8_t counter0[16u];
     size_t remain = (ctx->data_len / 16u) + ((ctx->data_len % 16u) != 0u);
     (void)memcpy(counter0, ctx->counter, sizeof(counter0));
-    for (uint8_t pos = 15u; pos > 0u; --pos) {
+    for (uint8_t pos = 15u; pos >= 12u; --pos) {
         if (counter0[pos] >= (remain & 0xFFu)) {
             counter0[pos] -= (uint8_t)(remain & 0xFFu);
             remain = remain >> 8u;
@@ -1160,7 +1160,14 @@ static void GCM_Xcrypt(UAES_GCM_Ctx_t *ctx,
     Cipher(&ctx->aes_ctx, ctx->counter, key_stream);
     for (size_t i = 0u; i < len; i++) {
         if ((ctx->data_len % 16u) == 0u) {
-            IterateKeyStream(&ctx->aes_ctx, ctx->counter, key_stream);
+            // GCM uses inc32 (SP 800-38D), not the full-width CTR increment.
+            for (uint8_t pos = 16u; pos > 12u; --pos) {
+                ctx->counter[pos - 1u]++;
+                if (ctx->counter[pos - 1u] != 0u) {
+                    break;
+                }
+            }
+            Cipher(&ctx->aes_ctx, ctx->counter, key_stream);
             // Do Ghash for previous block.
             // If called the first time in this function, it compute the Ghash
             // for the last block of AAD. If len_aad == 0, then the hash_buf is
@@ -2158,7 +2165,7 @@ static uint8_t RSboxAffineTransform(uint8_t x)
 }
 #endif
 
-#if (UAES_ENABLE_CTR != 0) || (UAES_ENABLE_CCM != 0) || (UAES_ENABLE_GCM != 0)
+#if (UAES_ENABLE_CTR != 0) || (UAES_ENABLE_CCM != 0)
 // Increase the counter by 1 and compute the next block of key stream.
 static void IterateKeyStream(const UAES_AES_Ctx_t *ctx,
                              uint8_t *counter,
