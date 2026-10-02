@@ -65,6 +65,26 @@ static void CheckData(const uint8_t *expected,
 }
 
 #if (UAES_ENABLE_CCM == 1) || (UAES_ENABLE_GCM == 1)
+static void CheckCondition(bool condition, const char *msg)
+{
+    if (condition) {
+        s_pass_num++;
+    } else {
+        UAES_TP_LogString("CheckCondition failed:", msg);
+        s_fail_num++;
+    }
+}
+
+// Select a key size that is available in single-key CI configurations.
+#if UAES_ENABLE_128
+#define AUTH_TEST_KEY_LEN 16u
+#elif UAES_ENABLE_192
+#define AUTH_TEST_KEY_LEN 24u
+#else
+#define AUTH_TEST_KEY_LEN 32u
+#endif
+static const uint8_t AUTH_TEST_KEY[AUTH_TEST_KEY_LEN] = { 0u };
+
 static void CheckDataAndTag(const uint8_t *expected,
                             const uint8_t *actual,
                             size_t len,
@@ -824,7 +844,7 @@ static void TestCcmCase(const uint8_t *KEY,
     // Test encryption at once
     UAES_CCM_Init(&ctx, KEY, key_len, NONCE, nonce_len, 0u, data_len, tag_len);
     UAES_CCM_Encrypt(&ctx, IN, result, data_len);
-    UAES_CCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    UAES_CCM_GenerateTag(&ctx, tag_out, tag_len);
     CheckDataAndTag(OUT,
                     result,
                     data_len,
@@ -864,7 +884,7 @@ static void TestCcmCase(const uint8_t *KEY,
         UAES_CCM_Encrypt(&ctx, &IN[pos], &result[pos], chunk);
         pos += chunk;
     }
-    UAES_CCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    UAES_CCM_GenerateTag(&ctx, tag_out, tag_len);
     CheckDataAndTag(OUT,
                     result,
                     data_len,
@@ -878,7 +898,7 @@ static void TestCcmCase(const uint8_t *KEY,
     // after UAES_CCM_GenerateTag works correctly.
     (void)memcpy(result, OUT, data_len);
     UAES_CCM_Decrypt(&ctx, result, result, data_len);
-    UAES_CCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    UAES_CCM_GenerateTag(&ctx, tag_out, tag_len);
     CheckDataAndTag(IN,
                     result,
                     data_len,
@@ -898,6 +918,7 @@ static void TestCcmCase(const uint8_t *KEY,
                                 TAG,
                                 tag_len)) {
         UAES_TP_LogString("", "UAES_CCM_SimpleDecrypt failed at verifying");
+        s_fail_num++;
     } else {
         CheckData(IN, result, data_len, "UAES_CCM_SimpleDecrypt");
     }
@@ -905,7 +926,7 @@ static void TestCcmCase(const uint8_t *KEY,
     UAES_CCM_Init(&ctx, KEY, key_len, NONCE, nonce_len, 0u, data_len, tag_len);
     // This is an intended call to make sure calling UAES_CCM_VerifyTag
     // after UAES_CCM_GenerateTag works correctly.
-    UAES_CCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    UAES_CCM_GenerateTag(&ctx, tag_out, tag_len);
     (void)memcpy(result, OUT, data_len);
     pos = 0u;
     while (pos < data_len) {
@@ -919,7 +940,7 @@ static void TestCcmCase(const uint8_t *KEY,
         UAES_CCM_Decrypt(&ctx, &OUT[pos], &result[pos], chunk);
         pos += chunk;
     }
-    UAES_CCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    UAES_CCM_GenerateTag(&ctx, tag_out, tag_len);
 }
 
 static void TestCcm(void)
@@ -1053,7 +1074,7 @@ static void TestCcmWithAadCase(const uint8_t *KEY,
                   tag_len);
     UAES_CCM_AddAad(&ctx, AAD, aad_len);
     UAES_CCM_Encrypt(&ctx, IN, result, data_len);
-    UAES_CCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    UAES_CCM_GenerateTag(&ctx, tag_out, tag_len);
     CheckDataAndTag(OUT,
                     result,
                     data_len,
@@ -1112,7 +1133,7 @@ static void TestCcmWithAadCase(const uint8_t *KEY,
         UAES_CCM_Encrypt(&ctx, &IN[pos], &result[pos], chunk);
         pos += chunk;
     }
-    UAES_CCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    UAES_CCM_GenerateTag(&ctx, tag_out, tag_len);
     CheckDataAndTag(OUT,
                     result,
                     data_len,
@@ -1134,7 +1155,7 @@ static void TestCcmWithAadCase(const uint8_t *KEY,
     UAES_CCM_Decrypt(&ctx, result, result, data_len);
     // This is an intended call to make sure calling UAES_CCM_VerifyTag
     // after UAES_CCM_GenerateTag works correctly.
-    UAES_CCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    UAES_CCM_GenerateTag(&ctx, tag_out, tag_len);
     CheckDataAndTag(IN,
                     result,
                     data_len,
@@ -1154,6 +1175,7 @@ static void TestCcmWithAadCase(const uint8_t *KEY,
                                 TAG,
                                 tag_len)) {
         UAES_TP_LogString("", "UAES_CCM_SimpleDecrypt failed at verifying");
+        s_fail_num++;
     } else {
         CheckData(IN, result, data_len, "UAES_CCM_SimpleDecrypt");
     }
@@ -1191,7 +1213,7 @@ static void TestCcmWithAadCase(const uint8_t *KEY,
         UAES_CCM_Decrypt(&ctx, &OUT[pos], &result[pos], chunk);
         pos += chunk;
     }
-    UAES_CCM_GenerateTag(&ctx, tag_out, sizeof(tag_out));
+    UAES_CCM_GenerateTag(&ctx, tag_out, tag_len);
 }
 
 static void TestCcmWithAad(void)
@@ -1413,6 +1435,7 @@ static void TestGcmCase(const uint8_t *KEY,
                                 TAG,
                                 tag_len)) {
         UAES_TP_LogString("", "UAES_GCM_SimpleDecrypt failed at verifying\n");
+        s_fail_num++;
     } else {
         CheckData(PT, result, data_len, "UAES_GCM_SimpleDecrypt");
     }
@@ -1618,6 +1641,271 @@ static void TestGcm(void)
 
 #endif // UAES_ENABLE_GCM
 
+#if UAES_ENABLE_CCM
+static void TestCcmTagBoundaries(void)
+{
+    const uint8_t nonce[13u] = { 0u };
+    const uint8_t aad[3u] = { 1u, 2u, 3u };
+    const uint8_t plain[33u] = { 4u, 5u, 6u };
+    const uint8_t zeros[33u] = { 0u };
+    uint8_t cipher[33u];
+    uint8_t output[35u];
+    uint8_t tag[18u];
+    UAES_CCM_Ctx_t ctx;
+
+    for (size_t len = 0u; len <= UINT8_MAX; ++len) {
+        uint8_t t = (uint8_t)len;
+        bool legal = (len >= 4u) && (len <= 16u) && ((len % 2u) == 0u);
+        if (!legal) {
+            uint8_t untouched = 0xA5u;
+            // NULL buffers and nonzero lengths prove rejection before access.
+            UAES_CCM_Init(&ctx, NULL, AUTH_TEST_KEY_LEN, NULL, 13u, 3u, 33u, t);
+            UAES_CCM_AddAad(&ctx, NULL, 3u);
+            UAES_CCM_Encrypt(&ctx, NULL, &untouched, 33u);
+            UAES_CCM_Decrypt(&ctx, NULL, &untouched, 33u);
+            UAES_CCM_GenerateTag(&ctx, &untouched, 16u);
+            CheckCondition(!UAES_CCM_VerifyTag(&ctx, NULL, 16u),
+                           "CCM rejected Init cannot authenticate");
+            UAES_CCM_SimpleEncrypt(NULL, AUTH_TEST_KEY_LEN, NULL, 13u,
+                                   NULL, 3u, NULL, &untouched, 33u, &untouched, t);
+            CheckCondition(!UAES_CCM_SimpleDecrypt(NULL, AUTH_TEST_KEY_LEN,
+                            NULL, 13u, NULL, 3u, NULL, &untouched, 33u, NULL, t),
+                           "CCM invalid one-shot length");
+            CheckCondition(untouched == 0xA5u, "CCM invalid length no writes");
+            continue;
+        }
+        (void)memset(tag, 0xA5, sizeof(tag));
+        UAES_CCM_SimpleEncrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN, nonce, 13u,
+                              aad, sizeof(aad), plain, cipher, sizeof(plain),
+                              &tag[1u], t);
+        CheckCondition((tag[0u] == 0xA5u) && (tag[len + 1u] == 0xA5u),
+                       "CCM tag output bounds");
+        UAES_CCM_Init(&ctx, AUTH_TEST_KEY, AUTH_TEST_KEY_LEN, nonce, 13u,
+                      sizeof(aad), sizeof(plain), t);
+        UAES_CCM_AddAad(&ctx, aad, sizeof(aad));
+        UAES_CCM_Encrypt(&ctx, plain, &output[1u], sizeof(plain));
+        CheckData(cipher, &output[1u], sizeof(cipher), "CCM streaming ciphertext");
+        UAES_CCM_Ctx_t saved;
+        (void)memcpy(&saved, &ctx, sizeof(ctx));
+        CheckCondition(UAES_CCM_VerifyTag(&ctx, &tag[1u], t), "CCM legal tag");
+        CheckCondition(UAES_CCM_VerifyTag(&ctx, &tag[1u], t), "CCM repeated verify");
+        for (size_t pos = 1u; pos <= len; ++pos) {
+            tag[pos] ^= 1u;
+            CheckCondition(!UAES_CCM_VerifyTag(&ctx, &tag[1u], t),
+                           "CCM every tag byte authenticated");
+            (void)memset(output, 0xA5, sizeof(output));
+            CheckCondition(!UAES_CCM_SimpleDecrypt(AUTH_TEST_KEY,
+                           AUTH_TEST_KEY_LEN, nonce, 13u, aad, sizeof(aad),
+                           cipher, &output[1u], sizeof(cipher), &tag[1u], t),
+                           "CCM tampered one-shot tag");
+            CheckData(zeros, &output[1u], sizeof(zeros), "CCM failure clears output");
+            CheckCondition((output[0u] == 0xA5u) && (output[34u] == 0xA5u),
+                           "CCM clearing bounds");
+            tag[pos] ^= 1u;
+        }
+        CheckData((const uint8_t *)&saved, (const uint8_t *)&ctx, sizeof(ctx),
+                  "CCM verification preserves context");
+        CheckCondition(UAES_CCM_SimpleDecrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN,
+                       nonce, 13u, aad, sizeof(aad), cipher, output,
+                       sizeof(cipher), &tag[1u], t), "CCM correct one-shot tag");
+        CheckData(plain, output, sizeof(plain), "CCM correct plaintext");
+        cipher[0u] ^= 1u;
+        CheckCondition(!UAES_CCM_SimpleDecrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN,
+                       nonce, 13u, aad, sizeof(aad), cipher, output,
+                       sizeof(cipher), &tag[1u], t), "CCM tampered ciphertext");
+        CheckData(zeros, output, sizeof(zeros), "CCM bad ciphertext clears");
+        cipher[0u] ^= 1u;
+        uint8_t bad_aad[3u] = { 0u, 2u, 3u };
+        CheckCondition(!UAES_CCM_SimpleDecrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN,
+                       nonce, 13u, bad_aad, sizeof(bad_aad), cipher, output,
+                       sizeof(cipher), &tag[1u], t), "CCM tampered AAD");
+        CheckData(zeros, output, sizeof(zeros), "CCM bad AAD clears");
+        (void)memcpy(output, cipher, sizeof(cipher));
+        tag[len] ^= 1u;
+        CheckCondition(!UAES_CCM_SimpleDecrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN,
+                       nonce, 13u, aad, sizeof(aad), output, output,
+                       sizeof(cipher), &tag[1u], t), "CCM in-place failure");
+        CheckData(zeros, output, sizeof(zeros), "CCM in-place failure clears");
+        UAES_CCM_SimpleEncrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN, nonce, 13u,
+                              NULL, 0u, NULL, NULL, 0u, &tag[1u], t);
+        CheckCondition(UAES_CCM_SimpleDecrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN,
+                       nonce, 13u, NULL, 0u, NULL, NULL, 0u, &tag[1u], t),
+                       "CCM empty message valid tag");
+        tag[1u] ^= 1u;
+        CheckCondition(!UAES_CCM_SimpleDecrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN,
+                       nonce, 13u, NULL, 0u, NULL, NULL, 0u, &tag[1u], t),
+                       "CCM empty message tampered tag");
+    }
+    UAES_CCM_Init(&ctx, AUTH_TEST_KEY, AUTH_TEST_KEY_LEN, nonce, 13u, 0u, 0u, 16u);
+    for (size_t len = 0u; len <= UINT8_MAX; ++len) {
+        if (len != 16u) {
+            uint8_t untouched = 0xA5u;
+            UAES_CCM_GenerateTag(&ctx, &untouched, (uint8_t)len);
+            CheckCondition(untouched == 0xA5u, "CCM length mismatch no writes");
+            CheckCondition(!UAES_CCM_VerifyTag(&ctx, NULL, (uint8_t)len),
+                           "CCM length mismatch no reads");
+        }
+    }
+    // Rejected nonce lengths must not poison subsequent calls or reuse.
+    for (size_t len = 0u; len <= UINT8_MAX; ++len) {
+        if ((len < 7u) || (len > 13u)) {
+            uint8_t untouched = 0xA5u;
+            UAES_CCM_Init(&ctx, NULL, AUTH_TEST_KEY_LEN, NULL, (uint8_t)len,
+                          3u, 33u, 16u);
+            UAES_CCM_AddAad(&ctx, NULL, 3u);
+            UAES_CCM_Encrypt(&ctx, NULL, &untouched, 33u);
+            UAES_CCM_Decrypt(&ctx, NULL, &untouched, 33u);
+            UAES_CCM_GenerateTag(&ctx, &untouched, 16u);
+            CheckCondition(!UAES_CCM_VerifyTag(&ctx, NULL, 16u),
+                           "CCM rejected nonce cannot authenticate");
+            CheckCondition(!UAES_CCM_SimpleDecrypt(NULL, AUTH_TEST_KEY_LEN,
+                           NULL, (uint8_t)len, NULL, 3u, NULL, &untouched,
+                           33u, NULL, 16u), "CCM invalid one-shot nonce");
+            UAES_CCM_SimpleEncrypt(NULL, AUTH_TEST_KEY_LEN, NULL, (uint8_t)len,
+                                  NULL, 3u, NULL, &untouched, 33u, &untouched, 16u);
+            CheckCondition(untouched == 0xA5u, "CCM invalid nonce no writes");
+        }
+    }
+    UAES_CCM_Init(&ctx, AUTH_TEST_KEY, AUTH_TEST_KEY_LEN, nonce, 13u, 0u, 0u, 16u);
+    UAES_CCM_GenerateTag(&ctx, tag, 16u);
+    CheckCondition(UAES_CCM_VerifyTag(&ctx, tag, 16u), "CCM context recovery");
+#if SIZE_MAX >= UINT32_MAX
+    // White-box length-field check; no giant AAD buffer is needed for Init.
+    UAES_CCM_Init(&ctx, AUTH_TEST_KEY, AUTH_TEST_KEY_LEN, nonce, 13u, 1u, 0u, 16u);
+    uint8_t expected_cbc[16u];
+    (void)memcpy(expected_cbc, ctx.cbc_buf, sizeof(expected_cbc));
+    expected_cbc[1u] ^= 1u; // Undo the two-byte encoding of aad_len == 1.
+    const uint8_t length_field[6u] = {
+        0xFFu, 0xFEu, 0xFFu, 0xFFu, 0xFFu, 0xFFu
+    };
+    for (size_t i = 0u; i < sizeof(length_field); ++i) {
+        expected_cbc[i] ^= length_field[i];
+    }
+    UAES_CCM_Init(&ctx, AUTH_TEST_KEY, AUTH_TEST_KEY_LEN, nonce, 13u,
+                  (size_t)UINT32_MAX, 0u, 16u);
+    CheckData(expected_cbc, ctx.cbc_buf, sizeof(expected_cbc),
+              "CCM four-byte AAD length maximum");
+#if SIZE_MAX > UINT32_MAX
+    UAES_CCM_Init(&ctx, AUTH_TEST_KEY, AUTH_TEST_KEY_LEN, nonce, 13u, 1u, 0u, 16u);
+    (void)memcpy(expected_cbc, ctx.cbc_buf, sizeof(expected_cbc));
+    expected_cbc[1u] ^= 1u;
+    const uint8_t wide_length_field[10u] = {
+        0xFFu, 0xFFu, 0u, 0u, 0u, 1u, 0u, 0u, 0u, 0u
+    };
+    for (size_t i = 0u; i < sizeof(wide_length_field); ++i) {
+        expected_cbc[i] ^= wide_length_field[i];
+    }
+    UAES_CCM_Init(&ctx, AUTH_TEST_KEY, AUTH_TEST_KEY_LEN, nonce, 13u,
+                  (size_t)UINT32_MAX + 1u, 0u, 16u);
+    CheckData(expected_cbc, ctx.cbc_buf, sizeof(expected_cbc),
+              "CCM eight-byte AAD length minimum");
+#endif
+#endif
+}
+#endif
+
+#if UAES_ENABLE_GCM
+static void TestGcmTagBoundaries(void)
+{
+    const uint8_t iv[12u] = { 0u };
+    const uint8_t aad[3u] = { 1u, 2u, 3u };
+    const uint8_t plain[33u] = { 4u, 5u, 6u };
+    const uint8_t zeros[33u] = { 0u };
+    uint8_t cipher[33u];
+    uint8_t output[35u];
+    uint8_t tag[18u];
+    UAES_GCM_Ctx_t ctx;
+    UAES_GCM_Init(&ctx, AUTH_TEST_KEY, AUTH_TEST_KEY_LEN, iv, sizeof(iv));
+    UAES_GCM_AddAad(&ctx, aad, sizeof(aad));
+    UAES_GCM_Encrypt(&ctx, plain, cipher, sizeof(plain));
+    UAES_GCM_Ctx_t saved;
+    (void)memcpy(&saved, &ctx, sizeof(ctx));
+    // Include SIZE_MAX to catch truncation/overflow in length validation.
+    for (size_t test = 0u; test <= 256u; ++test) {
+        size_t len = (test == 256u) ? SIZE_MAX : test;
+        bool legal = (len == 4u) || (len == 8u) || ((len >= 12u) && (len <= 16u));
+        if (!legal) {
+            uint8_t untouched = 0xA5u;
+            UAES_GCM_GenerateTag(&ctx, &untouched, len);
+            CheckCondition(!UAES_GCM_VerifyTag(&ctx, NULL, len),
+                           "GCM invalid length no reads");
+            UAES_GCM_SimpleEncrypt(NULL, AUTH_TEST_KEY_LEN, NULL, 12u,
+                                  NULL, 3u, NULL, &untouched, 33u, &untouched, len);
+            CheckCondition(!UAES_GCM_SimpleDecrypt(NULL, AUTH_TEST_KEY_LEN,
+                           NULL, 12u, NULL, 3u, NULL, &untouched, 33u, NULL, len),
+                           "GCM invalid one-shot length");
+            CheckCondition(untouched == 0xA5u, "GCM invalid length no writes");
+            continue;
+        }
+        (void)memset(tag, 0xA5, sizeof(tag));
+        UAES_GCM_GenerateTag(&ctx, &tag[1u], len);
+        CheckCondition((tag[0u] == 0xA5u) && (tag[len + 1u] == 0xA5u),
+                       "GCM tag output bounds");
+        CheckCondition(UAES_GCM_VerifyTag(&ctx, &tag[1u], len), "GCM legal tag");
+        CheckCondition(UAES_GCM_VerifyTag(&ctx, &tag[1u], len), "GCM repeated verify");
+        for (size_t pos = 1u; pos <= len; ++pos) {
+            tag[pos] ^= 1u;
+            CheckCondition(!UAES_GCM_VerifyTag(&ctx, &tag[1u], len),
+                           "GCM every tag byte authenticated");
+            (void)memset(output, 0xA5, sizeof(output));
+            CheckCondition(!UAES_GCM_SimpleDecrypt(AUTH_TEST_KEY,
+                           AUTH_TEST_KEY_LEN, iv, sizeof(iv), aad, sizeof(aad),
+                           cipher, &output[1u], sizeof(cipher), &tag[1u], len),
+                           "GCM tampered one-shot tag");
+            CheckData(zeros, &output[1u], sizeof(zeros), "GCM failure clears output");
+            CheckCondition((output[0u] == 0xA5u) && (output[34u] == 0xA5u),
+                           "GCM clearing bounds");
+            tag[pos] ^= 1u;
+        }
+        CheckCondition(UAES_GCM_SimpleDecrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN,
+                       iv, sizeof(iv), aad, sizeof(aad), cipher, output,
+                       sizeof(cipher), &tag[1u], len), "GCM correct one-shot tag");
+        CheckData(plain, output, sizeof(plain), "GCM correct plaintext");
+        cipher[0u] ^= 1u;
+        CheckCondition(!UAES_GCM_SimpleDecrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN,
+                       iv, sizeof(iv), aad, sizeof(aad), cipher, output,
+                       sizeof(cipher), &tag[1u], len), "GCM tampered ciphertext");
+        CheckData(zeros, output, sizeof(zeros), "GCM bad ciphertext clears");
+        cipher[0u] ^= 1u;
+        uint8_t bad_aad[3u] = { 0u, 2u, 3u };
+        CheckCondition(!UAES_GCM_SimpleDecrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN,
+                       iv, sizeof(iv), bad_aad, sizeof(bad_aad), cipher, output,
+                       sizeof(cipher), &tag[1u], len), "GCM tampered AAD");
+        CheckData(zeros, output, sizeof(zeros), "GCM bad AAD clears");
+        (void)memcpy(output, cipher, sizeof(cipher));
+        tag[len] ^= 1u;
+        CheckCondition(!UAES_GCM_SimpleDecrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN,
+                       iv, sizeof(iv), aad, sizeof(aad), output, output,
+                       sizeof(cipher), &tag[1u], len), "GCM in-place failure");
+        CheckData(zeros, output, sizeof(zeros), "GCM in-place failure clears");
+        UAES_GCM_SimpleEncrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN, iv, sizeof(iv),
+                              NULL, 0u, NULL, NULL, 0u, &tag[1u], len);
+        CheckCondition(UAES_GCM_SimpleDecrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN,
+                       iv, sizeof(iv), NULL, 0u, NULL, NULL, 0u, &tag[1u], len),
+                       "GCM empty message valid tag");
+        tag[1u] ^= 1u;
+        CheckCondition(!UAES_GCM_SimpleDecrypt(AUTH_TEST_KEY, AUTH_TEST_KEY_LEN,
+                       iv, sizeof(iv), NULL, 0u, NULL, NULL, 0u, &tag[1u], len),
+                       "GCM empty message tampered tag");
+    }
+    CheckData((const uint8_t *)&saved, (const uint8_t *)&ctx, sizeof(ctx),
+              "GCM tag operations preserve context");
+#if UAES_ENABLE_128 && (SIZE_MAX >= UINT32_MAX)
+    // White-box check of length encoding, not a claim of processing 4 GiB.
+    // With zero hash state, GHASH only authenticates the synthetic length
+    // block. Expected = AES_K(J0) XOR GHASH_H(0x00000007fffffff8 || 0^64).
+    const uint8_t expected_tag[16u] = {
+        0x4Cu, 0x40u, 0x42u, 0x22u, 0x3Eu, 0xDEu, 0xE5u, 0x62u,
+        0x04u, 0x6Du, 0x37u, 0x05u, 0x8Fu, 0x3Cu, 0x67u, 0x46u
+    };
+    UAES_GCM_Init(&ctx, AUTH_TEST_KEY, AUTH_TEST_KEY_LEN, iv, sizeof(iv));
+    ctx.aad_len = (size_t)UINT32_MAX;
+    UAES_GCM_GenerateTag(&ctx, tag, 16u);
+    CheckData(expected_tag, tag, sizeof(expected_tag), "GCM wide AAD bit length");
+#endif
+}
+#endif
+
 void UAES_TestSimple(size_t *p_pass_num, size_t *p_fail_num)
 {
     s_fail_num = 0u;
@@ -1644,9 +1932,11 @@ void UAES_TestSimple(size_t *p_pass_num, size_t *p_fail_num)
 #if UAES_ENABLE_CCM
     TestCcm();
     TestCcmWithAad();
+    TestCcmTagBoundaries();
 #endif
 #if UAES_ENABLE_GCM
     TestGcm();
+    TestGcmTagBoundaries();
 #endif
     *p_pass_num = s_pass_num;
     *p_fail_num = s_fail_num;

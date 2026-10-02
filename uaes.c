@@ -689,7 +689,27 @@ void UAES_CTR_SimpleDecrypt(const uint8_t *key,
 
 #endif
 
+#if (UAES_ENABLE_CCM != 0) || (UAES_ENABLE_GCM != 0)
+static bool CompareTags(const uint8_t *expected,
+                        const uint8_t *actual,
+                        size_t len)
+{
+    // Keep every accumulation observable so optimization cannot turn this
+    // into a comparison that returns at the first mismatching byte.
+    volatile uint8_t difference = 0u;
+    for (size_t i = 0u; i < len; ++i) {
+        difference |= expected[i] ^ actual[i];
+    }
+    return difference == 0u;
+}
+#endif
+
 #if UAES_ENABLE_CCM
+static bool CCM_IsTagLengthValid(uint8_t tag_len)
+{
+    return (tag_len >= 4u) && (tag_len <= 16u) && ((tag_len % 2u) == 0u);
+}
+
 void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
                    const uint8_t *key,
                    size_t key_len,
@@ -700,6 +720,11 @@ void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
                    uint8_t tag_len)
 {
     (void)memset(ctx, 0, sizeof(UAES_CCM_Ctx_t));
+    if (!CCM_IsTagLengthValid(tag_len) || (nonce_len < 7u)
+        || (nonce_len > 13u)) {
+        // cppcheck-suppress misra-c2012-15.5 ; local failure path has no pending cleanup
+        return;
+    }
     InitAesCtx(&ctx->aes_ctx, key, key_len);
     uint8_t tag_bits_l = 14u - (uint8_t)nonce_len;
     uint8_t tag_bits_m = (uint8_t)((tag_len - 2u) / 2u);
@@ -718,7 +743,9 @@ void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
         ctx->cbc_buf[i] = (uint8_t)tmp;
         tmp >>= 8u;
     }
-    ctx->nonce_len = nonce_len;
+    // Both lengths fit in nibbles. Zero marks a rejected initialization,
+    // without adding per-context RAM or changing the context layout.
+    ctx->nonce_len = nonce_len | (uint8_t)((tag_len / 2u) << 4u);
     // Process AAD length field.
     if (aad_len > 0u) {
         Cipher(&ctx->aes_ctx, ctx->cbc_buf, ctx->cbc_buf);
@@ -726,7 +753,7 @@ void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
         if (aad_len < 0xFF00u) {
             ctx->aad_byte_pos = 0u;
             aad_len_bytes = 2u;
-        } else if (aad_len < 0xFFFFFFFFu) {
+        } else if (aad_len <= UINT32_MAX) {
             ctx->cbc_buf[0] ^= 0xFFu;
             ctx->cbc_buf[1] ^= 0xFEu;
             ctx->aad_byte_pos = 2u;
@@ -737,9 +764,11 @@ void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
             ctx->aad_byte_pos = 2u;
             aad_len_bytes = 8u;
         }
+        tmp = aad_len;
         for (uint8_t i = 0u; i < aad_len_bytes; ++i) {
-            uint8_t shift = (uint8_t)(8u * ((aad_len_bytes - i) - 1u));
-            ctx->cbc_buf[ctx->aad_byte_pos + i] ^= (uint8_t)(aad_len >> shift);
+            // Also encode eight-byte fields safely when size_t is narrower.
+            ctx->cbc_buf[ctx->aad_byte_pos + aad_len_bytes - 1u - i] ^= (uint8_t)tmp;
+            tmp >>= 8u;
         }
         ctx->aad_byte_pos += aad_len_bytes;
     }
@@ -750,6 +779,10 @@ void UAES_CCM_Init(UAES_CCM_Ctx_t *ctx,
 
 void UAES_CCM_AddAad(UAES_CCM_Ctx_t *ctx, const uint8_t *aad, size_t len)
 {
+    if (ctx->nonce_len == 0u) {
+        // cppcheck-suppress misra-c2012-15.5 ; local failure path has no pending cleanup
+        return;
+    }
     for (size_t i = 0u; i < len; ++i) {
         if (ctx->aad_byte_pos >= 16u) {
             Cipher(&ctx->aes_ctx, ctx->cbc_buf, ctx->cbc_buf);
@@ -780,10 +813,15 @@ void UAES_CCM_GenerateTag(const UAES_CCM_Ctx_t *ctx,
                           uint8_t *tag,
                           uint8_t tag_len)
 {
+    if (!CCM_IsTagLengthValid(tag_len)
+        || (tag_len != (uint8_t)((ctx->nonce_len >> 4u) * 2u))) {
+        // cppcheck-suppress misra-c2012-15.5 ; local failure path has no pending cleanup
+        return;
+    }
     uint8_t ctr_tag[16u];
     uint8_t cbc_tag[16u];
     for (uint8_t i = 0u; i < 16u; ++i) {
-        if (i <= ctx->nonce_len) {
+        if (i <= (ctx->nonce_len & 0x0Fu)) {
             ctr_tag[i] = ctx->counter[i];
         } else {
             ctr_tag[i] = 0u;
@@ -799,9 +837,14 @@ bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
                         const uint8_t *tag,
                         uint8_t tag_len)
 {
+    if (!CCM_IsTagLengthValid(tag_len)
+        || (tag_len != (uint8_t)((ctx->nonce_len >> 4u) * 2u))) {
+        // cppcheck-suppress misra-c2012-15.5 ; local failure path has no pending cleanup
+        return false;
+    }
     uint8_t expected_tag[16u];
     UAES_CCM_GenerateTag(ctx, expected_tag, tag_len);
-    return (memcmp(expected_tag, tag, tag_len) == 0);
+    return CompareTags(expected_tag, tag, tag_len);
 }
 
 void UAES_CCM_SimpleEncrypt(const uint8_t *key,
@@ -851,14 +894,42 @@ bool UAES_CCM_SimpleDecrypt(const uint8_t *key,
                   aad_len,
                   data_len,
                   tag_len);
+    if (ctx.nonce_len == 0u) {
+        // cppcheck-suppress misra-c2012-15.5 ; local failure path has no pending cleanup
+        return false;
+    }
     UAES_CCM_AddAad(&ctx, aad, aad_len);
     UAES_CCM_Decrypt(&ctx, input, output, data_len);
-    return UAES_CCM_VerifyTag(&ctx, tag, tag_len);
+    if (!UAES_CCM_VerifyTag(&ctx, tag, tag_len)) {
+        if (data_len > 0u) {
+            (void)memset(output, 0, data_len);
+        }
+        // cppcheck-suppress misra-c2012-15.5 ; local failure path has no pending cleanup
+        return false;
+    }
+    return true;
 }
 
 #endif // UAES_ENABLE_CCM
 
 #if UAES_ENABLE_GCM
+static bool GCM_IsTagLengthValid(size_t tag_len)
+{
+    return (tag_len == 4u) || (tag_len == 8u)
+           || ((tag_len >= 12u) && (tag_len <= 16u));
+}
+
+static void GCM_XorBitLength(uint8_t field[8u], size_t byte_len)
+{
+    // Encode byte_len * 8 without overflowing size_t or shifting by its width.
+    field[7u] ^= (uint8_t)(byte_len << 3u);
+    size_t remain = byte_len >> 5u;
+    for (uint8_t i = 7u; i > 0u; --i) {
+        field[i - 1u] ^= (uint8_t)remain;
+        remain >>= 8u;
+    }
+}
+
 void UAES_GCM_Init(UAES_GCM_Ctx_t *ctx,
                    const uint8_t *key,
                    size_t key_len,
@@ -894,10 +965,7 @@ void UAES_GCM_Init(UAES_GCM_Ctx_t *ctx,
         }
         // Step 2: the last block consists 64 zeros and the big-endian encoding
         // of the number of bits in the IV.
-        size_t iv_len_bits = iv_len * 8u;
-        for (size_t i = 0u; i < sizeof(iv_len_bits); ++i) {
-            ctx->counter[15u - i] ^= (uint8_t)(iv_len_bits >> (i * 8u));
-        }
+        GCM_XorBitLength(&ctx->counter[8u], iv_len);
         Ghash(ctx, ctx->counter, ctx->counter);
     }
 }
@@ -936,10 +1004,12 @@ void UAES_GCM_GenerateTag(const UAES_GCM_Ctx_t *ctx,
                           uint8_t *tag,
                           size_t tag_len)
 {
+    if (!GCM_IsTagLengthValid(tag_len)) {
+        // cppcheck-suppress misra-c2012-15.5 ; local failure path has no pending cleanup
+        return;
+    }
     // Use a local hash_buf to avoid error when called multiple times.
     uint8_t hash_buf[16];
-    size_t data_bits = ctx->data_len * 8u;
-    size_t aad_bits = ctx->aad_len * 8u;
 
     (void)memcpy(hash_buf, ctx->hash_buf, 16u);
     // Do Ghash on the last data block.
@@ -949,17 +1019,13 @@ void UAES_GCM_GenerateTag(const UAES_GCM_Ctx_t *ctx,
     // effect.
     Ghash(ctx, hash_buf, hash_buf);
     // The last block of Ghash consists the length of AAD and data in bits.
-    for (size_t i = 0u; i < 8u; ++i) {
-        hash_buf[i] ^= (uint8_t)(aad_bits >> (8u * (7u - i)));
-    }
-    for (size_t i = 8u; i < 16u; ++i) {
-        hash_buf[i] ^= (uint8_t)(data_bits >> (8u * (15u - i)));
-    }
+    GCM_XorBitLength(hash_buf, ctx->aad_len);
+    GCM_XorBitLength(&hash_buf[8u], ctx->data_len);
     Ghash(ctx, hash_buf, hash_buf);
     // To save RAM, the counter0 is not stored in the context. Instead, it is
     // recovered by subtracting the counter with data_len/16.
     uint8_t counter0[16u];
-    size_t remain = (ctx->data_len + 15u) / 16u;
+    size_t remain = (ctx->data_len / 16u) + ((ctx->data_len % 16u) != 0u);
     (void)memcpy(counter0, ctx->counter, sizeof(counter0));
     for (uint8_t pos = 15u; pos > 0u; --pos) {
         if (counter0[pos] >= (remain & 0xFFu)) {
@@ -984,9 +1050,13 @@ bool UAES_GCM_VerifyTag(const UAES_GCM_Ctx_t *ctx,
                         const uint8_t *tag,
                         size_t tag_len)
 {
+    if (!GCM_IsTagLengthValid(tag_len)) {
+        // cppcheck-suppress misra-c2012-15.5 ; local failure path has no pending cleanup
+        return false;
+    }
     uint8_t expected_tag[16u];
     UAES_GCM_GenerateTag(ctx, expected_tag, tag_len);
-    return (memcmp(expected_tag, tag, tag_len) == 0);
+    return CompareTags(expected_tag, tag, tag_len);
 }
 
 void UAES_GCM_SimpleEncrypt(const uint8_t *key,
@@ -1001,6 +1071,10 @@ void UAES_GCM_SimpleEncrypt(const uint8_t *key,
                             uint8_t *tag,
                             size_t tag_len)
 {
+    if (!GCM_IsTagLengthValid(tag_len)) {
+        // cppcheck-suppress misra-c2012-15.5 ; local failure path has no pending cleanup
+        return;
+    }
     UAES_GCM_Ctx_t ctx;
     UAES_GCM_Init(&ctx, key, key_len, iv, iv_len);
     UAES_GCM_AddAad(&ctx, aad, aad_len);
@@ -1020,11 +1094,22 @@ bool UAES_GCM_SimpleDecrypt(const uint8_t *key,
                             const uint8_t *tag,
                             size_t tag_len)
 {
+    if (!GCM_IsTagLengthValid(tag_len)) {
+        // cppcheck-suppress misra-c2012-15.5 ; local failure path has no pending cleanup
+        return false;
+    }
     UAES_GCM_Ctx_t ctx;
     UAES_GCM_Init(&ctx, key, key_len, iv, iv_len);
     UAES_GCM_AddAad(&ctx, aad, aad_len);
     UAES_GCM_Decrypt(&ctx, input, output, data_len);
-    return UAES_GCM_VerifyTag(&ctx, tag, tag_len);
+    if (!UAES_GCM_VerifyTag(&ctx, tag, tag_len)) {
+        if (data_len > 0u) {
+            (void)memset(output, 0, data_len);
+        }
+        // cppcheck-suppress misra-c2012-15.5 ; local failure path has no pending cleanup
+        return false;
+    }
+    return true;
 }
 
 static void Ghash(const UAES_GCM_Ctx_t *ctx,
@@ -2106,6 +2191,10 @@ static void CCM_Xcrypt(UAES_CCM_Ctx_t *ctx,
                        size_t len,
                        bool encrypt)
 {
+    if (ctx->nonce_len == 0u) {
+        // cppcheck-suppress misra-c2012-15.5 ; local failure path has no pending cleanup
+        return;
+    }
     uint8_t key_stream[16u];
     // Generate the key stream as it is not stored in the context.
     Cipher(&ctx->aes_ctx, ctx->counter, key_stream);
