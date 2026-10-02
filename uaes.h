@@ -901,10 +901,11 @@ extern void UAES_CTR_SimpleDecrypt(const uint8_t *key,
 #endif // UAES_ENABLE_CTR
 
 #if UAES_ENABLE_CCM
+// Context fields are internal; initialize and access them only through the API.
 typedef struct {
     UAES_AES_Ctx_t aes_ctx;
     uint8_t byte_pos;
-    uint8_t nonce_len;
+    uint8_t nonce_len; // Low nibble: nonce length; high nibble: tag length / 2.
     uint8_t aad_byte_pos;
     uint8_t cbc_buf[16u];
     uint8_t counter[16u];
@@ -937,6 +938,9 @@ typedef struct {
  * The tag_len is the length of the authentication tag. It must be even and
  * between 4~16. The recommended tag length is 16. The tag_len should be given
  * at initialization as required by the algorithm of authentication.
+ * An invalid tag or nonce length leaves a rejected context: AddAad, Encrypt,
+ * Decrypt and GenerateTag do nothing, and VerifyTag returns false. Call Init
+ * again with valid lengths to reuse it.
  *
  * @param ctx The context to initialize.
  * @param key The key to use.
@@ -1000,6 +1004,8 @@ extern void UAES_CCM_Encrypt(UAES_CCM_Ctx_t *ctx,
  * @brief Decrypt data using AES CCM mode.
  *
  * All the rules of UAES_CCM_Encrypt apply here.
+ * The output is provisional, unauthenticated plaintext. Do not use, act on,
+ * or forward it until UAES_CCM_VerifyTag returns true. Discard it on failure.
  *
  * @param ctx The CCM context to use.
  * @param input The data to decrypt.
@@ -1017,6 +1023,8 @@ extern void UAES_CCM_Decrypt(UAES_CCM_Ctx_t *ctx,
  * This function MUST be called after UAES_CCM_Encrypt or UAES_CCM_Decrypt.
  * The total length of the encrypted/decrypted data must be exactly the same as
  * the data_len given in UAES_CCM_Init.
+ * If tag_len is invalid or differs from the initialized length, nothing is
+ * written to tag.
  *
  * @param ctx The CCM context to use.
  * @param tag The buffer to write the tag to.
@@ -1029,6 +1037,10 @@ extern void UAES_CCM_GenerateTag(const UAES_CCM_Ctx_t *ctx,
 
 /**
  * @brief Verify the authentication tag.
+ *
+ * Invalid lengths, lengths different from Init, and rejected contexts return
+ * false without reading tag. Valid-length tags are compared in full without
+ * returning at the first mismatch.
  * @param ctx The CCM context to use.
  * @param tag The tag to verify.
  * @param tag_len The length of the tag in bytes, must be the same as the
@@ -1044,6 +1056,7 @@ extern bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
  *
  * All the rules of UAES_CCM_Init, UAES_CCM_Encrypt and UAES_CCM_GenerateTag
  * apply here.
+ * Invalid tag or nonce lengths leave output and tag unchanged.
  *
  * @param key The key to use.
  * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
@@ -1055,7 +1068,7 @@ extern bool UAES_CCM_VerifyTag(const UAES_CCM_Ctx_t *ctx,
  * @param output The buffer to write the encrypted data to.
  * @param data_len The length of the data in bytes.
  * @param tag The buffer to write the tag to.
- * @param tag_len The length of the tag in bytes, must be the same as the
+ * @param tag_len The length of the tag in bytes; even and between 4~16.
  */
 extern void UAES_CCM_SimpleEncrypt(const uint8_t *key,
                                    size_t key_len,
@@ -1074,6 +1087,11 @@ extern void UAES_CCM_SimpleEncrypt(const uint8_t *key,
  *
  * All the rules of UAES_CCM_Init, UAES_CCM_Decrypt and UAES_CCM_VerifyTag apply
  * here.
+ * Invalid tag or nonce lengths return false without reading input or tag and
+ * leave output unchanged. For valid lengths, a mismatching tag returns false
+ * and clears data_len bytes of output, including for in-place decryption.
+ * Always check the return value before using output. The expected tag length
+ * must be fixed by the application, not selected from an untrusted message.
  *
  * @param key The key to use.
  * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
@@ -1085,7 +1103,7 @@ extern void UAES_CCM_SimpleEncrypt(const uint8_t *key,
  * @param output The buffer to write the decrypted data to.
  * @param data_len The length of the data in bytes.
  * @param tag The tag to verify.
- * @param tag_len The length of the tag in bytes, must be the same as the
+ * @param tag_len The expected tag length in bytes; even and between 4~16.
  * @return true if the tag matches, false otherwise.
  */
 extern bool UAES_CCM_SimpleDecrypt(const uint8_t *key,
@@ -1124,6 +1142,14 @@ typedef struct {
  * generally considered public information. However, the IV should NEVER be
  * reused with the same key. There is no requirement on the length of the IV for
  * GCM mode. However, it is HIGHLY recommended to use a 12-byte (96-bit)  IV.
+ *
+ * Supported tag lengths are 4, 8, 12, 13, 14, 15 and 16 bytes (NIST SP 800-38D,
+ * Section 5.2.1.2). Prefer 16 bytes. Using 4 or 8 bytes requires the message
+ * size and per-key invocation limits in Appendix C. The application must fix
+ * the expected tag length for each key/protocol and must not accept a shorter
+ * tag just because an untrusted message supplies a shorter length. Init does
+ * not store a tag length; pass the trusted expected length to VerifyTag or
+ * SimpleDecrypt.
  *
  * @param ctx The context to initialize.
  * @param key The key to use.
@@ -1175,6 +1201,8 @@ extern void UAES_GCM_Encrypt(UAES_GCM_Ctx_t *ctx,
  * @brief Decrypt data using AES GCM mode.
  *
  * All the rules of UAES_GCM_Encrypt apply here.
+ * The output is provisional, unauthenticated plaintext. Do not use, act on,
+ * or forward it until UAES_GCM_VerifyTag returns true. Discard it on failure.
  *
  * @param ctx The GCM context to use.
  * @param input The data to decrypt.
@@ -1190,10 +1218,11 @@ extern void UAES_GCM_Decrypt(UAES_GCM_Ctx_t *ctx,
  * @brief Generate the authentication tag.
  *
  * This function should only be called when all the data has been processed.
+ * Invalid tag lengths leave tag unchanged.
  *
  * @param ctx The GCM context to use.
  * @param tag The buffer to write the tag to.
- * @param tag_len The length of the tag in bytes.
+ * @param tag_len The tag length in bytes: 4, 8, 12, 13, 14, 15 or 16.
  */
 extern void UAES_GCM_GenerateTag(const UAES_GCM_Ctx_t *ctx,
                                  uint8_t *tag,
@@ -1204,10 +1233,13 @@ extern void UAES_GCM_GenerateTag(const UAES_GCM_Ctx_t *ctx,
  *
  * This function calls UAES_GCM_GenerateTag internally, thus it should only be
  * called when all the data has been processed.
+ * Invalid lengths return false without reading tag. Valid-length tags are
+ * compared in full without returning at the first mismatch. Use the trusted
+ * expected length described in UAES_GCM_Init.
  *
  * @param ctx The GCM context to use.
  * @param tag The tag to verify.
- * @param tag_len The length of the tag in bytes.
+ * @param tag_len The expected length in bytes: 4, 8, 12, 13, 14, 15 or 16.
  * @return true if the tag matches, false otherwise.
  */
 extern bool UAES_GCM_VerifyTag(const UAES_GCM_Ctx_t *ctx,
@@ -1216,6 +1248,9 @@ extern bool UAES_GCM_VerifyTag(const UAES_GCM_Ctx_t *ctx,
 
 /**
  * @brief Simple function for encrypting and generating tag using GCM mode.
+ *
+ * Tag length restrictions and short-tag limits in UAES_GCM_Init apply here.
+ * Invalid tag lengths leave output and tag unchanged.
  * @param key The key to use.
  * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
  * @param iv The initialization vector to use.
@@ -1224,9 +1259,9 @@ extern bool UAES_GCM_VerifyTag(const UAES_GCM_Ctx_t *ctx,
  * @param aad_len The length of the AAD in bytes.
  * @param input The data to encrypt.
  * @param output The buffer to write the encrypted data to.
- * @param len The length of the data in bytes.
+ * @param data_len The length of the data in bytes.
  * @param tag The buffer to write the tag to.
- * @param tag_len The length of the tag in bytes.
+ * @param tag_len The tag length in bytes: 4, 8, 12, 13, 14, 15 or 16.
  */
 extern void UAES_GCM_SimpleEncrypt(const uint8_t *key,
                                    size_t key_len,
@@ -1244,6 +1279,11 @@ extern void UAES_GCM_SimpleEncrypt(const uint8_t *key,
  * @brief Simple function for decrypting and verifying tag using GCM mode.
  *
  * All the rules of UAES_GCM_SimpleEncrypt apply here.
+ * Invalid tag lengths return false without reading input or tag and leave
+ * output unchanged. For valid lengths, a mismatching tag returns false and
+ * clears data_len bytes of output, including for in-place decryption. Always
+ * check the return value before using output. Use the trusted expected length
+ * described in UAES_GCM_Init.
  *
  * @param key The key to use.
  * @param key_len The length of the key in bytes. It must be 16, 24, or 32.
@@ -1255,7 +1295,7 @@ extern void UAES_GCM_SimpleEncrypt(const uint8_t *key,
  * @param output The buffer to write the decrypted data to.
  * @param data_len The length of the data in bytes.
  * @param tag The tag to verify.
- * @param tag_len The length of the tag in bytes.
+ * @param tag_len The expected length in bytes: 4, 8, 12, 13, 14, 15 or 16.
  * @return true if the tag matches, false otherwise.
  */
 extern bool UAES_GCM_SimpleDecrypt(const uint8_t *key,
